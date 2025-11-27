@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bedrock SDK - Browser Example</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    #output {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 5px;
+      margin-top: 20px;
+      white-space: pre-wrap;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .section {
+      margin: 20px 0;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    h2 {
+      margin-top: 0;
+    }
+    .info {
+      background: #e7f3ff;
+      padding: 10px;
+      border-radius: 5px;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>🪨 Bedrock SDK - Browser Example</h1>
+
+  <div class="section">
+    <h2>1. Connect Wallet</h2>
+    <button id="connectBtn">Connect MetaMask</button>
+    <div id="walletInfo" class="info" style="display: none;">
+      <strong>Connected:</strong> <span id="address"></span>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>2. File Operations</h2>
+    <input type="file" id="fileInput" disabled>
+    <button id="uploadBtn" disabled>Upload File</button>
+    <button id="listBtn" disabled>List Files</button>
+    <button id="downloadBtn" disabled>Download First File</button>
+  </div>
+
+  <div class="section">
+    <h2>3. Contact Operations</h2>
+    <input type="text" id="contactName" placeholder="Contact Name" disabled>
+    <input type="text" id="contactAddress" placeholder="0x..." disabled>
+    <input type="text" id="contactPubKey" placeholder="Public Key" disabled>
+    <button id="addContactBtn" disabled>Add Contact</button>
+    <button id="listContactsBtn" disabled>List Contacts</button>
+  </div>
+
+  <div class="section">
+    <h2>4. Knowledge Base Operations</h2>
+    <input type="text" id="kbName" placeholder="Knowledge Base Name" disabled>
+    <button id="createKbBtn" disabled>Create KB</button>
+    <button id="listKbBtn" disabled>List KBs</button>
+  </div>
+
+  <div id="output">Logs will appear here...</div>
+
+  <script type="module">
+    // Import Bedrock SDK (adjust path based on your build)
+    import { BedrockClient } from '../dist/index.mjs';
+
+    let client = null;
+    const output = document.getElementById('output');
+
+    function log(message) {
+      const timestamp = new Date().toLocaleTimeString();
+      output.textContent += `[${timestamp}] ${message}\n`;
+      output.scrollTop = output.scrollHeight;
+    }
+
+    // Connect wallet
+    document.getElementById('connectBtn').addEventListener('click', async () => {
+      try {
+        if (!window.ethereum) {
+          alert('MetaMask not detected! Please install MetaMask.');
+          return;
+        }
+
+        log('Connecting to MetaMask...');
+        client = await BedrockClient.fromProvider(window.ethereum);
+
+        log('✓ Connected successfully!');
+        log(`Main address: ${client.getMainAddress()}`);
+        log(`Sub address: ${client.getSubAddress()}`);
+
+        document.getElementById('address').textContent = client.getMainAddress();
+        document.getElementById('walletInfo').style.display = 'block';
+
+        // Enable all buttons
+        document.querySelectorAll('button:disabled, input:disabled').forEach(el => {
+          el.disabled = false;
+        });
+        document.getElementById('connectBtn').disabled = true;
+      } catch (error) {
+        log(`✗ Error: ${error.message}`);
+      }
+    });
+
+    // Upload file
+    document.getElementById('uploadBtn').addEventListener('click', async () => {
+      try {
+        const fileInput = document.getElementById('fileInput');
+        const file = fileInput.files[0];
+        if (!file) {
+          alert('Please select a file first');
+          return;
+        }
+
+        log(`Uploading ${file.name}...`);
+        const buffer = Buffer.from(await file.arrayBuffer());
+
+        const uploaded = await client.files.uploadFiles([{
+          name: file.name,
+          path: `uploads/${file.name}`,
+          content: buffer,
+        }]);
+
+        log(`✓ Uploaded ${file.name} (${uploaded[0].size} bytes)`);
+      } catch (error) {
+        log(`✗ Error: ${error.message}`);
+      }
+    });
+
+    // List files
+    document.getElementById('listBtn').addEventListener('click', async () => {
+      try {
+        log('Fetching files...');
+        const files = await client.files.listFiles();
+
+        log(`✓ Found ${files.length} files:`);
+        files.forEach(f => {
+          log(`  - ${f.path} (${f.size} bytes)`);
+        });
+      } catch (error) {
+        log(`✗ Error: ${error.message}`);
+      }
+    });
+
+    // Download first file
+    document.getElementById('downloadBtn').addEventListener('click', async () => {
+      try {
+        log('Downloading first file...');
+        const files = await client.files.listFiles();
+
+        if (files.length === 0) {
+          log('No files to download');
+          return;
+        }
+
+        const file = files[0];
+        const content = await client.files.downloadFile(file);
+
+        log(`✓ Downloaded ${file.name}`);
+        log(`Content preview: ${content.toString().substring(0, 100)}...`);
+
+        // Create download link
+        const blob = new Blob([content]);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.name;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        log(`✗ Error: ${error.message}`);
+      }
+    });
+
+    // Add contact
+    document.getElementById('addContactBtn').addEventListener('click', async () => {
+      try {
+        const name = document.getElementById('contactName').value;
+        const address = document.getElementById('contactAddress').value;
+        const pubKey = document.getElementById('contactPubKey').value;
+
+        if (!name || !address || !pubKey) {
+          alert('Please fill all contact fields');
+          return;
+        }
+
+        log(`Adding contact ${name}...`);
+        await client.contacts.addContact(name, address, pubKey);
+        log(`✓ Added contact ${name}`);
+      } catch (error) {
+        log(`✗ Error: ${error.message}`);
+      }
+    });
+
+    // List contacts
+    document.getElementById('listContactsBtn').addEventListener('click', async () => {
+      try {
+        log('Fetching contacts...');
+        const contacts = await client.contacts.listContacts();
+
+        log(`✓ Found ${contacts.length} contacts:`);
+        contacts.forEach(c => {
+          log(`  - ${c.name} (${c.address})`);
+        });
+      } catch (error) {
+        log(`✗ Error: ${error.message}`);
+      }
+    });
+
+    // Create knowledge base
+    document.getElementById('createKbBtn').addEventListener('click', async () => {
+      try {
+        const name = document.getElementById('kbName').value;
+        if (!name) {
+          alert('Please enter a knowledge base name');
+          return;
+        }
+
+        log(`Creating knowledge base ${name}...`);
+        await client.knowledgeBases.createKnowledgeBase(name);
+        log(`✓ Created knowledge base ${name}`);
+      } catch (error) {
+        log(`✗ Error: ${error.message}`);
+      }
+    });
+
+    // List knowledge bases
+    document.getElementById('listKbBtn').addEventListener('click', async () => {
+      try {
+        log('Fetching knowledge bases...');
+        const kbs = await client.knowledgeBases.listKnowledgeBases();
+
+        log(`✓ Found ${kbs.length} knowledge bases:`);
+        kbs.forEach(kb => {
+          log(`  - ${kb.name} (${kb.file_paths.length} files)`);
+        });
+      } catch (error) {
+        log(`✗ Error: ${error.message}`);
+      }
+    });
+
+    log('Ready! Click "Connect MetaMask" to begin.');
+  </script>
+</body>
+</html>

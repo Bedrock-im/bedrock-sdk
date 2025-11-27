@@ -1,0 +1,74 @@
+{
+  "name": "bedrock-sdk",
+  "version": "0.0.1",
+  "description": "TypeScript SDK for Bedrock - decentralized cloud storage powered by Aleph",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "bedrock",
+    "aleph",
+    "decentralized",
+    "storage",
+    "encryption",
+    "web3"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@aleph-sdk/account": "^1.2.0",
+    "@aleph-sdk/client": "1.0.6",
+    "@aleph-sdk/ethereum": "1.0.3",
+    "eciesjs": "^0.4.14",
+    "web3": "^4.14.0",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "@typescript-eslint/eslint-plugin": "^6.19.1",
+    "@typescript-eslint/parser": "^6.19.1",
+    "@vitest/ui": "^1.2.1",
+    "eslint": "^8.56.0",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.1"
+  },
+  "peerDependencies": {
+    "ethers": "^5.8.0"
+  },
+  "peerDependenciesMeta": {
+    "ethers": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Bedrock-im/bedrock-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Bedrock-im/bedrock-sdk/issues"
+  },
+  "homepage": "https://github.com/Bedrock-im/bedrock-sdk#readme"
+}
