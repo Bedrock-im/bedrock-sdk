@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { EncryptionService } from '../src/crypto/encryption';
+import { PrivateKey } from 'eciesjs';
 
 describe('EncryptionService', () => {
   describe('Key and IV generation', () => {
@@ -85,17 +86,16 @@ describe('EncryptionService', () => {
 
   describe('ECIES encryption/decryption', () => {
     // Generate a test key pair using eciesjs
-    const privateKey = Buffer.from('1234567890123456789012345678901234567890123456789012345678901234', 'hex');
+    const privateKeyHex = '1234567890123456789012345678901234567890123456789012345678901234';
+    const privateKey = PrivateKey.fromHex(privateKeyHex);
+    const publicKey = privateKey.publicKey;
 
     it('should encrypt and decrypt with ECIES', () => {
       const data = 'Sensitive information';
 
-      // For ECIES, we need to derive the public key from private key
-      // In real usage, this would come from the account
-      const publicKey = privateKey;
-
-      const encrypted = EncryptionService.encryptEcies(data, publicKey);
-      const decrypted = EncryptionService.decryptEcies(encrypted, privateKey);
+      // Use the derived public key for encryption
+      const encrypted = EncryptionService.encryptEcies(data, publicKey.toHex());
+      const decrypted = EncryptionService.decryptEcies(encrypted, privateKeyHex);
 
       expect(decrypted).toBe(data);
       expect(encrypted).not.toBe(data);
@@ -103,10 +103,8 @@ describe('EncryptionService', () => {
 
     it('should handle hex string keys', () => {
       const data = 'Test data';
-      const privateKeyHex = privateKey.toString('hex');
-      const publicKeyHex = privateKey.toString('hex');
 
-      const encrypted = EncryptionService.encryptEcies(data, publicKeyHex);
+      const encrypted = EncryptionService.encryptEcies(data, publicKey.toHex());
       const decrypted = EncryptionService.decryptEcies(encrypted, privateKeyHex);
 
       expect(decrypted).toBe(data);
