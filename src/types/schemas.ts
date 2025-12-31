@@ -12,10 +12,12 @@ export const AGGREGATE_KEYS = {
   FILE_ENTRIES: 'bedrock_file_entries',
   CONTACTS: 'bedrock_contacts',
   KNOWLEDGE_BASES: 'bedrock_knowledge_bases',
+  CREDITS: 'credits',
 } as const;
 
 export const POST_TYPES = {
   FILE: 'bedrock_file',
+  PUBLIC_FILE: 'bedrock_public_file',
 } as const;
 
 // ============================================================================
@@ -68,7 +70,7 @@ export const FileMetaEncryptedSchema = z.object({
   store_hash: HexString64Schema, // Aleph STORE hash
   size: z.string(), // Encrypted size
   created_at: z.string(), // Encrypted datetime
-  deleted_at: z.string().nullable().optional(), // Encrypted datetime or null
+  deleted_at: z.string().nullable(), // Encrypted datetime or null
   shared_keys: z.record(z.string(), z.object({
     key: z.string(), // Encrypted key for recipient
     iv: z.string(), // Encrypted IV for recipient
@@ -88,7 +90,7 @@ export const FileMetaSchema = z.object({
   store_hash: HexString64Schema,
   size: z.number(),
   created_at: DatetimeSchema,
-  deleted_at: DatetimeSchema.nullable().optional(),
+  deleted_at: DatetimeSchema.nullable(),
   shared_keys: z.record(z.string(), z.object({
     key: HexString64Schema,
     iv: HexString32Schema,
@@ -101,6 +103,19 @@ export type FileMeta = z.infer<typeof FileMetaSchema>;
  * Combined file entry and metadata
  */
 export type FileFullInfo = FileEntry & FileMeta;
+
+/**
+ * Public file metadata (unencrypted, accessible by anyone)
+ */
+export const PublicFileMetaSchema = z.object({
+  name: z.string(),
+  size: z.number(),
+  created_at: DatetimeSchema,
+  store_hash: HexString64Schema,
+  username: z.string(),
+});
+
+export type PublicFileMeta = z.infer<typeof PublicFileMetaSchema>;
 
 // ============================================================================
 // Contact Schemas
@@ -120,7 +135,9 @@ export type Contact = z.infer<typeof ContactSchema>;
 /**
  * Contacts aggregate
  */
-export const ContactsAggregateSchema = z.array(ContactSchema).default([]);
+export const ContactsAggregateSchema = z.object({
+  contacts: z.array(ContactSchema).default([]),
+});
 
 export type ContactsAggregate = z.infer<typeof ContactsAggregateSchema>;
 
@@ -143,9 +160,46 @@ export type KnowledgeBase = z.infer<typeof KnowledgeBaseSchema>;
 /**
  * Knowledge bases aggregate
  */
-export const KnowledgeBasesAggregateSchema = z.array(KnowledgeBaseSchema).default([]);
+export const KnowledgeBasesAggregateSchema = z.object({
+  knowledge_bases: z.array(KnowledgeBaseSchema).default([]),
+});
 
 export type KnowledgeBasesAggregate = z.infer<typeof KnowledgeBasesAggregateSchema>;
+
+// ============================================================================
+// Credit Schemas
+// ============================================================================
+
+/**
+ * Credit transaction record
+ */
+export const CreditTransactionSchema = z.object({
+  id: z.string(),
+  amount: z.number(),
+  type: z.enum(['top_up', 'deduct']),
+  timestamp: z.number(),
+  description: z.string(),
+  txHash: z.string().optional(),
+});
+
+export type CreditTransaction = z.infer<typeof CreditTransactionSchema>;
+
+/**
+ * User credit data
+ */
+export const UserCreditSchema = z.object({
+  balance: z.number().default(0),
+  transactions: z.array(CreditTransactionSchema).default([]),
+});
+
+export type UserCredit = z.infer<typeof UserCreditSchema>;
+
+/**
+ * Credit aggregate (backend-managed)
+ */
+export const CreditAggregateSchema = z.record(z.string(), UserCreditSchema);
+
+export type CreditAggregate = z.infer<typeof CreditAggregateSchema>;
 
 // ============================================================================
 // File Entries Aggregate
@@ -154,7 +208,9 @@ export type KnowledgeBasesAggregate = z.infer<typeof KnowledgeBasesAggregateSche
 /**
  * File entries aggregate
  */
-export const FileEntriesAggregateSchema = z.array(FileEntrySchema).default([]);
+export const FileEntriesAggregateSchema = z.object({
+  files: z.array(FileEntrySchema).default([]),
+});
 
 export type FileEntriesAggregate = z.infer<typeof FileEntriesAggregateSchema>;
 

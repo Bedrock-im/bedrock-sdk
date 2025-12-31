@@ -1,12 +1,13 @@
 import { BedrockCore } from '../client/bedrock-core';
+import { ContactError } from '../types/errors';
+import type { FileFullInfo } from '../types/schemas';
 import {
+  AGGREGATE_KEYS,
   Contact,
   ContactsAggregateSchema,
-  AGGREGATE_KEYS,
+  FileEntriesAggregateSchema,
 } from '../types/schemas';
-import { ContactError } from '../types/errors';
 import { FileService } from './file-service';
-import type { FileFullInfo } from '../types/schemas';
 
 /**
  * Contact service for managing contacts and shared files
@@ -33,7 +34,7 @@ export class ContactService {
       );
     } catch {
       // Create empty aggregate if it doesn't exist
-      await aleph.createAggregate(AGGREGATE_KEYS.CONTACTS, []);
+      await aleph.createAggregate(AGGREGATE_KEYS.CONTACTS, { contacts: [] });
     }
   }
 
@@ -44,11 +45,11 @@ export class ContactService {
     const aleph = this.core.getAlephService();
 
     try {
-      const contacts = await aleph.fetchAggregate(
+      const aggregate = await aleph.fetchAggregate(
         AGGREGATE_KEYS.CONTACTS,
         ContactsAggregateSchema
       );
-      return contacts;
+      return aggregate.contacts;
     } catch (error) {
       throw new ContactError(`Failed to fetch contacts: ${(error as Error).message}`);
     }
@@ -115,8 +116,9 @@ export class ContactService {
       await aleph.updateAggregate(
         AGGREGATE_KEYS.CONTACTS,
         ContactsAggregateSchema,
-        (currentContacts) => [...(currentContacts || []), newContact],
-        true
+        async (aggregate) => ({
+          contacts: [...aggregate.contacts, newContact]
+        })
       );
 
       return newContact;
@@ -143,8 +145,9 @@ export class ContactService {
       await aleph.updateAggregate(
         AGGREGATE_KEYS.CONTACTS,
         ContactsAggregateSchema,
-        (currentContacts) => (currentContacts || []).filter(c => c.public_key !== publicKey),
-        true
+        async (aggregate) => ({
+          contacts: aggregate.contacts.filter(c => c.public_key !== publicKey)
+        })
       );
     } catch (error) {
       if (error instanceof ContactError) {
@@ -176,10 +179,11 @@ export class ContactService {
       await aleph.updateAggregate(
         AGGREGATE_KEYS.CONTACTS,
         ContactsAggregateSchema,
-        (currentContacts) => (currentContacts || []).map(c =>
-          c.public_key === publicKey ? updatedContact : c
-        ),
-        true
+        async (aggregate) => ({
+          contacts: aggregate.contacts.map(c =>
+            c.public_key === publicKey ? updatedContact : c
+          )
+        })
       );
 
       return updatedContact;
@@ -214,6 +218,42 @@ export class ContactService {
       return files;
     } catch (error) {
       throw new ContactError(`Failed to fetch shared files: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Fetch files that a contact has shared with the current user
+   * @param publicKey - Contact's public key
+   * @returns Files shared by the contact with current user
+   */
+  async fetchFilesSharedByContact(publicKey: string): Promise<FileFullInfo[]> {
+    try {
+      // Verify contact exists and get their address
+      const contact = await this.getContact(publicKey);
+      const currentUserPublicKey = this.core.getPublicKey();
+
+      // Fetch contact's file entries from THEIR aggregate
+      const aleph = this.core.getAlephService();
+      const contactEntries = await aleph.fetchAggregate(
+        AGGREGATE_KEYS.FILE_ENTRIES,
+        FileEntriesAggregateSchema,
+        contact.address  // Important: contact's address, not current user's
+      );
+
+      // Filter entries shared with current user
+      const sharedEntries = contactEntries.files.filter(entry =>
+        entry.shared_with.includes(currentUserPublicKey)
+      );
+
+      // Fetch metadata from contact's POSTs using fileService
+      const files = await this.fileService.fetchFilesMetaFromEntries(
+        sharedEntries,
+        contact.address  // Owner is the contact
+      );
+
+      return files;
+    } catch (error) {
+      throw new ContactError(`Failed to fetch files shared by contact: ${(error as Error).message}`);
     }
   }
 

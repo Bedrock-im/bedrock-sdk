@@ -1,8 +1,8 @@
-import { AuthenticatedAlephHttpClient, AlephHttpClient } from '@aleph-sdk/client';
+import { AuthenticatedAlephHttpClient } from '@aleph-sdk/client';
 import { ItemType, StoreMessage, ForgetMessage, PostMessage, AggregateMessage } from '@aleph-sdk/message';
 import type { ETHAccount } from '@aleph-sdk/ethereum';
 import { z } from 'zod';
-import { NetworkError, ValidationError } from '../types/errors';
+import { NetworkError } from '../types/errors';
 import { ALEPH_GENERAL_CHANNEL } from '../types/schemas';
 
 /**
@@ -13,10 +13,10 @@ export class AlephService {
   private account: ETHAccount;
   private channel: string;
 
-  constructor(account: ETHAccount, channel: string = ALEPH_GENERAL_CHANNEL) {
+  constructor(account: ETHAccount, channel: string = ALEPH_GENERAL_CHANNEL, apiServer: string = 'https://api2.aleph.im') {
     this.account = account;
     this.channel = channel;
-    this.subAccountClient = new AuthenticatedAlephHttpClient(account);
+    this.subAccountClient = new AuthenticatedAlephHttpClient(account, apiServer);
   }
 
   /**

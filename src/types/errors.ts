@@ -77,6 +77,17 @@ export class KnowledgeBaseError extends BedrockError {
 }
 
 /**
+ * Credit-related errors
+ */
+export class CreditError extends BedrockError {
+  constructor(message: string) {
+    super(message, 'CREDIT_ERROR');
+    this.name = 'CreditError';
+    Object.setPrototypeOf(this, CreditError.prototype);
+  }
+}
+
+/**
  * Network/Aleph API errors
  */
 export class NetworkError extends BedrockError {

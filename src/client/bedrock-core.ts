@@ -1,15 +1,14 @@
-import { Account } from '@aleph-sdk/account';
-import { ETHAccount, importAccountFromPrivateKey, getAccountFromProvider } from '@aleph-sdk/ethereum';
 import { AuthenticatedAlephHttpClient } from '@aleph-sdk/client';
+import { ETHAccount, getAccountFromProvider, importAccountFromPrivateKey } from '@aleph-sdk/ethereum';
 import { PrivateKey } from 'eciesjs';
 import web3 from 'web3';
-import { AlephService } from './aleph-service';
 import { AuthenticationError } from '../types/errors';
 import {
+  ALEPH_GENERAL_CHANNEL,
   BEDROCK_MESSAGE,
-  SECURITY_AGGREGATE_KEY,
-  ALEPH_GENERAL_CHANNEL
+  SECURITY_AGGREGATE_KEY
 } from '../types/schemas';
+import { AlephService } from './aleph-service';
 
 /**
  * Configuration for BedrockCore
@@ -27,20 +26,18 @@ export class BedrockCore {
   private subAccount: ETHAccount;
   private alephService: AlephService;
   private encryptionPrivateKey: PrivateKey;
-  private config: Required<BedrockCoreConfig>;
 
   private constructor(
     mainAccount: ETHAccount,
     subAccount: ETHAccount,
     alephService: AlephService,
     encryptionPrivateKey: PrivateKey,
-    config: Required<BedrockCoreConfig>
+    _config: Required<BedrockCoreConfig>
   ) {
     this.mainAccount = mainAccount;
     this.subAccount = subAccount;
     this.alephService = alephService;
     this.encryptionPrivateKey = encryptionPrivateKey;
-    this.config = config;
   }
 
   /**
@@ -70,17 +67,29 @@ export class BedrockCore {
       const encryptionPrivateKey = PrivateKey.fromHex(privateKey);
 
       // Get main account from provider
-      const mainAccount = await getAccountFromProvider(provider);
+      // Handle different wallet types like the old service did
+      let mainAccount: ETHAccount;
+
+      if (provider?.id && ['io.rabby', 'io.metamask'].includes(provider.id)) {
+        // For Rabby and MetaMask, use window.ethereum directly
+        if (typeof window !== 'undefined' && (window as any).ethereum) {
+          mainAccount = await getAccountFromProvider((window as any).ethereum);
+        } else {
+          throw new AuthenticationError('window.ethereum not available');
+        }
+      } else {
+        // For other wallets or standard EIP-1193 providers
+        mainAccount = await getAccountFromProvider(provider);
+      }
 
       // Create sub-account
       const subAccount = importAccountFromPrivateKey(privateKey);
-      const subAccountClient = new AuthenticatedAlephHttpClient(subAccount, cfg.apiServer);
 
       // Setup security permissions
       await BedrockCore.setupSecurityPermissions(mainAccount, subAccount, cfg);
 
       // Create AlephService
-      const alephService = new AlephService(subAccount, cfg.channel);
+      const alephService = new AlephService(subAccount, cfg.channel, cfg.apiServer);
 
       return new BedrockCore(mainAccount, subAccount, alephService, encryptionPrivateKey, cfg);
     } catch (error) {
@@ -127,7 +136,7 @@ export class BedrockCore {
       await BedrockCore.setupSecurityPermissions(mainAccount, subAccount, cfg);
 
       // Create AlephService
-      const alephService = new AlephService(subAccount, cfg.channel);
+      const alephService = new AlephService(subAccount, cfg.channel, cfg.apiServer);
 
       return new BedrockCore(mainAccount, subAccount, alephService, encryptionPrivateKey, cfg);
     } catch (error) {

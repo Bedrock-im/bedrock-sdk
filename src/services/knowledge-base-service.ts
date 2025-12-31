@@ -29,7 +29,7 @@ export class KnowledgeBaseService {
       );
     } catch {
       // Create empty aggregate if it doesn't exist
-      await aleph.createAggregate(AGGREGATE_KEYS.KNOWLEDGE_BASES, []);
+      await aleph.createAggregate(AGGREGATE_KEYS.KNOWLEDGE_BASES, { knowledge_bases: [] });
     }
   }
 
@@ -40,11 +40,11 @@ export class KnowledgeBaseService {
     const aleph = this.core.getAlephService();
 
     try {
-      const kbs = await aleph.fetchAggregate(
+      const aggregate = await aleph.fetchAggregate(
         AGGREGATE_KEYS.KNOWLEDGE_BASES,
         KnowledgeBasesAggregateSchema
       );
-      return kbs;
+      return aggregate.knowledge_bases;
     } catch (error) {
       throw new KnowledgeBaseError(`Failed to fetch knowledge bases: ${(error as Error).message}`);
     }
@@ -95,8 +95,9 @@ export class KnowledgeBaseService {
       await aleph.updateAggregate(
         AGGREGATE_KEYS.KNOWLEDGE_BASES,
         KnowledgeBasesAggregateSchema,
-        (currentKbs) => [...currentKbs, newKb],
-        true
+        async (aggregate) => ({
+          knowledge_bases: [...aggregate.knowledge_bases, newKb]
+        })
       );
 
       return newKb;
@@ -123,8 +124,9 @@ export class KnowledgeBaseService {
       await aleph.updateAggregate(
         AGGREGATE_KEYS.KNOWLEDGE_BASES,
         KnowledgeBasesAggregateSchema,
-        (currentKbs) => currentKbs.filter(k => k.name !== name),
-        true
+        async (aggregate) => ({
+          knowledge_bases: aggregate.knowledge_bases.filter(k => k.name !== name)
+        })
       );
     } catch (error) {
       if (error instanceof KnowledgeBaseError) {
@@ -163,10 +165,11 @@ export class KnowledgeBaseService {
       await aleph.updateAggregate(
         AGGREGATE_KEYS.KNOWLEDGE_BASES,
         KnowledgeBasesAggregateSchema,
-        (currentKbs) => currentKbs.map(k =>
-          k.name === oldName ? updatedKb : k
-        ),
-        true
+        async (aggregate) => ({
+          knowledge_bases: aggregate.knowledge_bases.map(k =>
+            k.name === oldName ? updatedKb : k
+          )
+        })
       );
 
       return updatedKb;
@@ -201,10 +204,11 @@ export class KnowledgeBaseService {
       await aleph.updateAggregate(
         AGGREGATE_KEYS.KNOWLEDGE_BASES,
         KnowledgeBasesAggregateSchema,
-        (currentKbs) => currentKbs.map(k =>
-          k.name === name ? updatedKb : k
-        ),
-        true
+        async (aggregate) => ({
+          knowledge_bases: aggregate.knowledge_bases.map(k =>
+            k.name === name ? updatedKb : k
+          )
+        })
       );
 
       return updatedKb;
@@ -242,10 +246,11 @@ export class KnowledgeBaseService {
       await aleph.updateAggregate(
         AGGREGATE_KEYS.KNOWLEDGE_BASES,
         KnowledgeBasesAggregateSchema,
-        (currentKbs) => currentKbs.map(k =>
-          k.name === name ? updatedKb : k
-        ),
-        true
+        async (aggregate) => ({
+          knowledge_bases: aggregate.knowledge_bases.map(k =>
+            k.name === name ? updatedKb : k
+          )
+        })
       );
 
       return updatedKb;
@@ -285,10 +290,11 @@ export class KnowledgeBaseService {
       await aleph.updateAggregate(
         AGGREGATE_KEYS.KNOWLEDGE_BASES,
         KnowledgeBasesAggregateSchema,
-        (currentKbs) => currentKbs.map(k =>
-          k.name === name ? updatedKb : k
-        ),
-        true
+        async (aggregate) => ({
+          knowledge_bases: aggregate.knowledge_bases.map(k =>
+            k.name === name ? updatedKb : k
+          )
+        })
       );
 
       return updatedKb;

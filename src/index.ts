@@ -16,6 +16,7 @@ export { AlephService } from './client/aleph-service';
 export { FileService, FileInput } from './services/file-service';
 export { ContactService } from './services/contact-service';
 export { KnowledgeBaseService } from './services/knowledge-base-service';
+export { CreditService } from './services/credit-service';
 
 // Encryption
 export { EncryptionService, CryptoUtils } from './crypto/encryption';
@@ -39,6 +40,10 @@ export {
   FileMetaEncryptedSchema,
   FileEntriesAggregateSchema,
 
+  // Public file types
+  PublicFileMeta,
+  PublicFileMetaSchema,
+
   // Contact types
   Contact,
   ContactSchema,
@@ -50,6 +55,14 @@ export {
   KnowledgeBaseSchema,
   KnowledgeBasesAggregate,
   KnowledgeBasesAggregateSchema,
+
+  // Credit types
+  UserCredit,
+  CreditTransaction,
+  CreditAggregate,
+  UserCreditSchema,
+  CreditTransactionSchema,
+  CreditAggregateSchema,
 
   // Security types
   SecurityAggregate,
@@ -77,6 +90,7 @@ export {
   FileNotFoundError,
   ContactError,
   KnowledgeBaseError,
+  CreditError,
   NetworkError,
   ValidationError,
 } from './types/errors';

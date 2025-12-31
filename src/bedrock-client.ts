@@ -2,6 +2,7 @@ import { BedrockCore, BedrockCoreConfig } from './client/bedrock-core';
 import { FileService } from './services/file-service';
 import { ContactService } from './services/contact-service';
 import { KnowledgeBaseService } from './services/knowledge-base-service';
+import { CreditService } from './services/credit-service';
 
 /**
  * Main Bedrock SDK client
@@ -27,6 +28,17 @@ import { KnowledgeBaseService } from './services/knowledge-base-service';
  *
  * // Create knowledge base
  * await client.knowledgeBases.createKnowledgeBase('My Documents');
+ *
+ * // Check credit balance
+ * const balance = await client.credits.getCreditBalance();
+ *
+ * // Share file publicly
+ * const publicHash = await client.files.shareFilePublicly(file, 'username');
+ * const meta = await FileService.fetchPublicFileMeta(publicHash);
+ * const content = await FileService.downloadPublicFile(meta.store_hash);
+ *
+ * // Get files shared by contact
+ * const sharedFiles = await client.contacts.fetchFilesSharedByContact(contactPubKey);
  * ```
  */
 export class BedrockClient {
@@ -47,11 +59,17 @@ export class BedrockClient {
    */
   public readonly knowledgeBases: KnowledgeBaseService;
 
+  /**
+   * Credit management service
+   */
+  public readonly credits: CreditService;
+
   private constructor(core: BedrockCore) {
     this.core = core;
     this.files = new FileService(core);
     this.contacts = new ContactService(core, this.files);
     this.knowledgeBases = new KnowledgeBaseService(core);
+    this.credits = new CreditService(core);
   }
 
   /**

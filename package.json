@@ -37,7 +37,11 @@
   "dependencies": {
     "@aleph-sdk/account": "^1.2.0",
     "@aleph-sdk/client": "1.0.6",
+    "@aleph-sdk/core": "^1.2.0",
     "@aleph-sdk/ethereum": "1.0.3",
+    "@aleph-sdk/evm": "^1.2.0",
+    "@aleph-sdk/message": "^1.2.0",
+    "decimal.js": "^10.6.0",
     "eciesjs": "^0.4.14",
     "web3": "^4.14.0",
     "zod": "^3.24.4"
@@ -48,6 +52,7 @@
     "@typescript-eslint/parser": "^6.19.1",
     "@vitest/ui": "^1.2.1",
     "eslint": "^8.56.0",
+    "patch-package": "^8.0.1",
     "tsup": "^8.0.1",
     "typescript": "^5.3.3",
     "vitest": "^1.2.1"

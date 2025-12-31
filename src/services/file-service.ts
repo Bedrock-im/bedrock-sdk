@@ -6,10 +6,14 @@ import {
   FileFullInfo,
   FileMetaEncryptedSchema,
   FileEntriesAggregateSchema,
+  PublicFileMeta,
+  PublicFileMetaSchema,
   AGGREGATE_KEYS,
   POST_TYPES,
+  ALEPH_GENERAL_CHANNEL,
 } from '../types/schemas';
 import { FileError, FileNotFoundError, EncryptionError } from '../types/errors';
+import { AlephHttpClient } from '@aleph-sdk/client';
 
 /**
  * File input type for uploads
@@ -43,7 +47,7 @@ export class FileService {
       );
     } catch {
       // Create empty aggregate if it doesn't exist
-      await aleph.createAggregate(AGGREGATE_KEYS.FILE_ENTRIES, []);
+      await aleph.createAggregate(AGGREGATE_KEYS.FILE_ENTRIES, { files: [] });
     }
   }
 
@@ -98,7 +102,7 @@ export class FileService {
         const encryptedMeta = await this.encryptFileMeta(fileMeta);
 
         // Create POST message with encrypted metadata
-        const postResult = await aleph.createPost(POST_TYPES.FILE, encryptedMeta, undefined, true);
+        const postResult = await aleph.createPost(POST_TYPES.FILE, encryptedMeta);
 
         // Create file entry
         const encryptedPath = EncryptionService.encryptEcies(fullPath, publicKey);
@@ -151,11 +155,11 @@ export class FileService {
     const aleph = this.core.getAlephService();
 
     try {
-      const entries = await aleph.fetchAggregate(
+      const aggregate = await aleph.fetchAggregate(
         AGGREGATE_KEYS.FILE_ENTRIES,
         FileEntriesAggregateSchema
       );
-      return entries;
+      return aggregate.files;
     } catch (error) {
       throw new FileError(`Failed to fetch file entries: ${(error as Error).message}`);
     }
@@ -178,9 +182,9 @@ export class FileService {
           // Fetch encrypted metadata from POST
           const encryptedMeta = await aleph.fetchPost(
             POST_TYPES.FILE,
-            entry.post_hash,
             FileMetaEncryptedSchema,
-            owner ? [owner] : undefined
+            owner ? [owner] : undefined,
+            entry.post_hash
           );
 
           // Decrypt metadata
@@ -255,8 +259,7 @@ export class FileService {
             const decryptedMeta = await this.decryptFileMeta(encryptedMeta);
             decryptedMeta.deleted_at = deletedAt;
             return await this.encryptFileMeta(decryptedMeta);
-          },
-          true
+          }
         );
       }
     } catch (error) {
@@ -285,8 +288,7 @@ export class FileService {
             const decryptedMeta = await this.decryptFileMeta(encryptedMeta);
             decryptedMeta.deleted_at = null;
             return await this.encryptFileMeta(decryptedMeta);
-          },
-          true
+          }
         );
       }
     } catch (error) {
@@ -308,15 +310,16 @@ export class FileService {
       await aleph.updateAggregate(
         AGGREGATE_KEYS.FILE_ENTRIES,
         FileEntriesAggregateSchema,
-        (entries) => entries.filter(entry =>
-          !files.some(f => f.post_hash === entry.post_hash)
-        ),
-        true
+        async (aggregate) => ({
+          files: aggregate.files.filter(entry =>
+            !files.some(f => f.post_hash === entry.post_hash)
+          )
+        })
       );
 
       // Forget STORE and POST messages
       const hashesToForget = files.flatMap(f => [f.store_hash, f.post_hash]);
-      await aleph.deleteFiles(hashesToForget, 'Hard delete', true);
+      await aleph.deleteFiles(hashesToForget);
     } catch (error) {
       throw new FileError(`Failed to hard delete files: ${(error as Error).message}`);
     }
@@ -345,8 +348,7 @@ export class FileService {
             decryptedMeta.path = newPath;
             decryptedMeta.name = newPath.split('/').pop() || newPath;
             return await this.encryptFileMeta(decryptedMeta);
-          },
-          true
+          }
         );
 
         // Update file entry with new encrypted path
@@ -354,12 +356,13 @@ export class FileService {
         await aleph.updateAggregate(
           AGGREGATE_KEYS.FILE_ENTRIES,
           FileEntriesAggregateSchema,
-          (entries) => entries.map(entry =>
-            entry.post_hash === file.post_hash
-              ? { ...entry, path: newEncryptedPath }
-              : entry
-          ),
-          true
+          async (aggregate) => ({
+            files: aggregate.files.map(entry =>
+              entry.post_hash === file.post_hash
+                ? { ...entry, path: newEncryptedPath }
+                : entry
+            )
+          })
         );
       }
     } catch (error) {
@@ -417,20 +420,20 @@ export class FileService {
             iv: encryptedIv,
           };
           return await this.encryptFileMeta(decryptedMeta);
-        },
-        true
+        }
       );
 
       // Update file entry shared_with list
       await aleph.updateAggregate(
         AGGREGATE_KEYS.FILE_ENTRIES,
         FileEntriesAggregateSchema,
-        (entries) => entries.map(entry =>
-          entry.post_hash === file.post_hash
-            ? { ...entry, shared_with: [...new Set([...entry.shared_with, contactPublicKey])] }
-            : entry
-        ),
-        true
+        async (aggregate) => ({
+          files: aggregate.files.map(entry =>
+            entry.post_hash === file.post_hash
+              ? { ...entry, shared_with: [...new Set([...entry.shared_with, contactPublicKey])] }
+              : entry
+          )
+        })
       );
     } catch (error) {
       throw new FileError(`Failed to share file: ${(error as Error).message}`);
@@ -458,23 +461,91 @@ export class FileService {
           const decryptedMeta = await this.decryptFileMeta(encryptedMeta);
           delete decryptedMeta.shared_keys[contactPublicKey];
           return await this.encryptFileMeta(decryptedMeta);
-        },
-        true
+        }
       );
 
       // Update file entry shared_with list
       await aleph.updateAggregate(
         AGGREGATE_KEYS.FILE_ENTRIES,
         FileEntriesAggregateSchema,
-        (entries) => entries.map(entry =>
-          entry.post_hash === file.post_hash
-            ? { ...entry, shared_with: entry.shared_with.filter(pk => pk !== contactPublicKey) }
-            : entry
-        ),
-        true
+        async (aggregate) => ({
+          files: aggregate.files.map(entry =>
+            entry.post_hash === file.post_hash
+              ? { ...entry, shared_with: entry.shared_with.filter(pk => pk !== contactPublicKey) }
+              : entry
+          )
+        })
       );
     } catch (error) {
       throw new FileError(`Failed to unshare file: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Share a file publicly (unencrypted, anyone can access)
+   * @param fileInfo - File to share publicly
+   * @param username - Username for attribution
+   * @returns Public post hash for sharing
+   */
+  async shareFilePublicly(fileInfo: FileFullInfo, username: string): Promise<string> {
+    const aleph = this.core.getAlephService();
+
+    try {
+      // Download and decrypt file
+      const decryptedContent = await this.downloadFile(fileInfo);
+
+      // Re-upload without encryption
+      const storeResult = await aleph.uploadFile(decryptedContent);
+
+      // Create public metadata
+      const publicMeta: PublicFileMeta = {
+        name: fileInfo.name,
+        size: fileInfo.size,
+        created_at: new Date().toISOString(),
+        store_hash: storeResult.item_hash,
+        username,
+      };
+
+      // Create public POST
+      const postResult = await aleph.createPost(POST_TYPES.PUBLIC_FILE, publicMeta);
+
+      return postResult.item_hash;
+    } catch (error) {
+      throw new FileError(`Failed to share file publicly: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Fetch public file metadata (static - no auth required)
+   * @param postHash - Public post hash
+   * @returns Public file metadata or null if not found
+   */
+  static async fetchPublicFileMeta(postHash: string): Promise<PublicFileMeta | null> {
+    try {
+      const client = new AlephHttpClient('https://api2.aleph.im');
+      const post = await client.getPost({
+        channels: [ALEPH_GENERAL_CHANNEL],
+        types: [POST_TYPES.PUBLIC_FILE],
+        hashes: [postHash],
+      });
+
+      return PublicFileMetaSchema.parse(post.content);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Download public file (static - no auth required)
+   * @param storeHash - Store hash from public metadata
+   * @returns File content as ArrayBuffer
+   */
+  static async downloadPublicFile(storeHash: string): Promise<ArrayBuffer> {
+    try {
+      const client = new AlephHttpClient('https://api2.aleph.im');
+      return await client.downloadFile(storeHash);
+    } catch (error) {
+      throw new FileError(`Failed to download public file: ${(error as Error).message}`);
     }
   }
 
@@ -488,15 +559,14 @@ export class FileService {
     await aleph.updateAggregate(
       AGGREGATE_KEYS.FILE_ENTRIES,
       FileEntriesAggregateSchema,
-      (currentEntries) => {
+      async (aggregate) => {
         const newEntries = files.map(f => ({
           path: f.path,
           post_hash: f.post_hash,
           shared_with: f.shared_with || [],
         }));
-        return [...currentEntries, ...newEntries];
-      },
-      true
+        return { files: [...aggregate.files, ...newEntries] };
+      }
     );
   }
 

@@ -5,7 +5,7 @@ import { EncryptionError } from '../types/errors';
  * Universal crypto utilities that work in both Node.js and browser
  */
 class CryptoUtils {
-  private static isBrowser = typeof window !== 'undefined' && typeof window.crypto !== 'undefined';
+  static isBrowser = typeof window !== 'undefined' && typeof window.crypto !== 'undefined';
 
   /**
    * Get crypto implementation (Node.js or browser)
