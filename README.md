@@ -7,16 +7,18 @@ TypeScript SDK for [Bedrock](https://bedrock.im) - decentralized cloud storage p
 - 🔐 **End-to-end encryption** - All files and metadata encrypted with AES-256-CBC + ECIES
 - 🌐 **Universal** - Works in Node.js and browser environments
 - 📁 **File management** - Upload, download, move, delete (soft/hard), share files
+- 🔗 **Public sharing** - Share files publicly without authentication
 - 👥 **Contact management** - Manage contacts and share files securely
 - 🧠 **Knowledge bases** - Organize files into collections
+- 💳 **Credit tracking** - Monitor usage credits and transaction history
 - ⚡ **Decentralized** - Built on Aleph network, no central server
-- 🔑 **Wallet integration** - MetaMask, WalletConnect, or private key
+- 🔑 **Wallet integration** - MetaMask, Rabby, WalletConnect, or private key
 - 📦 **TypeScript** - Full type safety with TypeScript
 
 ## Installation
 
 ```bash
-npm install bedrock-sdk
+npm install bedrock-ts-sdk
 ```
 
 ## Quick Start
@@ -24,7 +26,7 @@ npm install bedrock-sdk
 ### Node.js
 
 ```typescript
-import { BedrockClient } from 'bedrock-sdk';
+import { BedrockClient } from 'bedrock-ts-sdk';
 
 // Initialize from private key
 const client = await BedrockClient.fromPrivateKey('0x...');
@@ -48,10 +50,22 @@ console.log('Content:', content.toString());
 ### Browser with MetaMask
 
 ```typescript
-import { BedrockClient } from 'bedrock-sdk';
+import { BedrockClient, BEDROCK_MESSAGE } from 'bedrock-ts-sdk';
 
-// Connect to MetaMask
-const client = await BedrockClient.fromProvider(window.ethereum);
+// Request signature from MetaMask
+const accounts = await window.ethereum.request({
+  method: 'eth_requestAccounts'
+});
+const signature = await window.ethereum.request({
+  method: 'personal_sign',
+  params: [BEDROCK_MESSAGE, accounts[0]],
+});
+
+// Initialize client with signature
+const client = await BedrockClient.fromSignature(
+  signature,
+  window.ethereum
+);
 
 // Upload a file from user input
 const fileInput = document.querySelector('input[type="file"]');
@@ -85,14 +99,18 @@ Create client from wallet provider (MetaMask, WalletConnect, etc.).
 const client = await BedrockClient.fromProvider(window.ethereum);
 ```
 
-#### `BedrockClient.fromAccount(account, config?)`
+#### `BedrockClient.fromSignature(signatureHash, provider, config?)`
 
-Create client from Aleph SDK Account instance.
+Create client from wallet signature (recommended for web apps).
 
 ```typescript
-import { ETHAccount } from '@aleph-sdk/ethereum';
-const account = await ETHAccount.importFromPrivateKey('0x...');
-const client = await BedrockClient.fromAccount(account);
+// User signs message with wallet
+const signature = await wallet.signMessage({ message: 'Bedrock.im' });
+const client = await BedrockClient.fromSignature(
+  signature,
+  window.ethereum,
+  { apiServer: 'https://api2.aleph.im' }
+);
 ```
 
 ### File Operations
@@ -187,6 +205,24 @@ await client.files.shareFile('document.pdf', contactPublicKey);
 await client.files.unshareFile('document.pdf', contactPublicKey);
 ```
 
+#### Public File Sharing
+
+```typescript
+// Share file publicly (anyone can access without authentication)
+const file = await client.files.getFile('document.pdf');
+const publicHash = await client.files.shareFilePublicly(file, 'username');
+
+console.log(`Share this link: https://app.bedrock.im/public/${publicHash}`);
+
+// Fetch public file metadata (static method - no auth needed)
+import { FileService } from 'bedrock-ts-sdk';
+const metadata = await FileService.fetchPublicFileMeta(publicHash);
+console.log(metadata.name, metadata.size, metadata.username);
+
+// Download public file (static method - no auth needed)
+const content = await FileService.downloadPublicFile(metadata.store_hash);
+```
+
 ### Contact Operations
 
 #### Add Contact
@@ -236,8 +272,11 @@ await client.contacts.removeContact(publicKey);
 // Share
 await client.contacts.shareFileWithContact('file.pdf', publicKey);
 
-// Get shared files
+// Get files you shared with a contact
 const sharedFiles = await client.contacts.getSharedFiles(publicKey);
+
+// Get files a contact shared with you
+const receivedFiles = await client.contacts.fetchFilesSharedByContact(publicKey);
 
 // Unshare
 await client.contacts.unshareFileWithContact('file.pdf', publicKey);
@@ -300,6 +339,26 @@ await client.knowledgeBases.clearFiles('My KB');
 await client.knowledgeBases.deleteKnowledgeBase('My Documents');
 ```
 
+### Credit Operations
+
+The credit system is backend-managed (read-only from SDK).
+
+#### Get Credit Balance
+
+```typescript
+const credits = await client.credits.getCreditBalance();
+
+console.log('Balance:', credits.balance);
+console.log('Transactions:', credits.transactions);
+
+// Transaction history
+credits.transactions.forEach(tx => {
+  console.log(tx.type, tx.amount, tx.description, tx.timestamp);
+});
+```
+
+**Note:** Credits are managed by the backend. Users cannot modify their balance via the SDK. The backend maintains a credit aggregate with user balances and transaction history.
+
 ### Utility Methods
 
 #### Get Account Info
@@ -354,10 +413,14 @@ Bedrock uses a dual encryption approach:
 
 ```typescript
 const client = await BedrockClient.fromPrivateKey(privateKey, {
-  channel: 'MY_CUSTOM_CHANNEL',        // Default: 'BEDROCK_STORAGE'
+  channel: 'MY_CUSTOM_CHANNEL',        // Default: 'bedrock'
   apiServer: 'https://api2.aleph.im',  // Default: 'https://api2.aleph.im'
 });
 ```
+
+**Configuration Options:**
+- `channel`: Aleph channel for data isolation (default: `'bedrock'`)
+- `apiServer`: Aleph API server URL (default: `'https://api2.aleph.im'`)
 
 ## Development
 
@@ -416,9 +479,10 @@ import {
   FileNotFoundError,
   ContactError,
   KnowledgeBaseError,
+  CreditError,
   NetworkError,
   ValidationError,
-} from 'bedrock-sdk';
+} from 'bedrock-ts-sdk';
 
 try {
   await client.files.getFile('nonexistent.txt');
@@ -427,6 +491,8 @@ try {
     console.log('File not found:', error.message);
   } else if (error instanceof NetworkError) {
     console.log('Network error:', error.message);
+  } else if (error instanceof CreditError) {
+    console.log('Credit operation failed:', error.message);
   }
 }
 ```
