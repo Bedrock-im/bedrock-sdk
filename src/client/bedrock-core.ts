@@ -223,7 +223,9 @@ export class BedrockCore {
    * Get the main account's public key
    */
   getPublicKey(): string {
-    return this.mainAccount.publicKey || '';
+    // Use encryption private key's public key as it's always available
+    // This is derived from the signature and is consistent
+    return this.encryptionPrivateKey.publicKey.toHex();
   }
 
   /**
