@@ -223,9 +223,9 @@ export class BedrockCore {
    * Get the main account's public key
    */
   getPublicKey(): string {
-    // Use encryption private key's public key as it's always available
+    // Use encryption private key's compressed public key (matches old service)
     // This is derived from the signature and is consistent
-    return this.encryptionPrivateKey.publicKey.toHex();
+    return this.encryptionPrivateKey.publicKey.compressed.toString('hex');
   }
 
   /**

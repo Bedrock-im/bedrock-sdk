@@ -1,19 +1,19 @@
+import { AlephHttpClient } from '@aleph-sdk/client';
 import { BedrockCore } from '../client/bedrock-core';
 import { EncryptionService } from '../crypto/encryption';
+import { EncryptionError, FileError, FileNotFoundError } from '../types/errors';
 import {
-  FileEntry,
-  FileMeta,
-  FileFullInfo,
-  FileMetaEncryptedSchema,
+  AGGREGATE_KEYS,
+  ALEPH_GENERAL_CHANNEL,
   FileEntriesAggregateSchema,
+  FileEntry,
+  FileFullInfo,
+  FileMeta,
+  FileMetaEncryptedSchema,
+  POST_TYPES,
   PublicFileMeta,
   PublicFileMetaSchema,
-  AGGREGATE_KEYS,
-  POST_TYPES,
-  ALEPH_GENERAL_CHANNEL,
 } from '../types/schemas';
-import { FileError, FileNotFoundError, EncryptionError } from '../types/errors';
-import { AlephHttpClient } from '@aleph-sdk/client';
 
 /**
  * File input type for uploads
@@ -83,7 +83,7 @@ export class FileService {
         const storeResult = await aleph.uploadFile(encryptedContent);
 
         // Prepare file metadata
-        const fullPath = directoryPath ? `${directoryPath}/${file.path}` : file.path;
+        const fullPath = directoryPath ? `${directoryPath}${file.path}` : file.path;
         const createdAt = new Date().toISOString();
 
         const fileMeta: FileMeta = {
@@ -153,13 +153,20 @@ export class FileService {
    */
   async fetchFileEntries(): Promise<FileEntry[]> {
     const aleph = this.core.getAlephService();
+    const privateKey = this.core.getSubAccountPrivateKey();
 
     try {
       const aggregate = await aleph.fetchAggregate(
         AGGREGATE_KEYS.FILE_ENTRIES,
         FileEntriesAggregateSchema
       );
-      return aggregate.files;
+
+      // Decrypt paths (they're stored encrypted)
+      return aggregate.files.map(({ post_hash, path, shared_with }) => ({
+        post_hash,
+        path: EncryptionService.decryptEcies(path, privateKey),
+        shared_with,
+      }));
     } catch (error) {
       throw new FileError(`Failed to fetch file entries: ${(error as Error).message}`);
     }
@@ -555,13 +562,14 @@ export class FileService {
 
   private async saveFileEntries(files: FileFullInfo[]): Promise<void> {
     const aleph = this.core.getAlephService();
+    const publicKey = this.core.getPublicKey();
 
     await aleph.updateAggregate(
       AGGREGATE_KEYS.FILE_ENTRIES,
       FileEntriesAggregateSchema,
       async (aggregate) => {
         const newEntries = files.map(f => ({
-          path: f.path,
+          path: EncryptionService.encryptEcies(f.path, publicKey),
           post_hash: f.post_hash,
           shared_with: f.shared_with || [],
         }));
@@ -575,15 +583,19 @@ export class FileService {
     const iv = EncryptionService.generateIv();
     const publicKey = this.core.getPublicKey();
 
+    // Use file's own key/iv for path encryption (matches old service)
+    const fileKey = Buffer.from(meta.key, 'hex');
+    const fileIv = Buffer.from(meta.iv, 'hex');
+
     return {
       name: await EncryptionService.encrypt(meta.name, key, iv),
-      path: EncryptionService.encryptEcies(meta.path, publicKey),
+      path: await EncryptionService.encrypt(meta.path, fileKey, fileIv),
       key: EncryptionService.encryptEcies(meta.key, publicKey),
       iv: EncryptionService.encryptEcies(meta.iv, publicKey),
-      store_hash: meta.store_hash,
+      store_hash: await EncryptionService.encrypt(meta.store_hash, fileKey, fileIv),
       size: await EncryptionService.encrypt(meta.size.toString(), key, iv),
       created_at: await EncryptionService.encrypt(meta.created_at, key, iv),
-      deleted_at: meta.deleted_at ? await EncryptionService.encrypt(meta.deleted_at, key, iv) : null,
+      deleted_at: await EncryptionService.encrypt(meta.deleted_at ?? 'null', fileKey, fileIv),
       shared_keys: meta.shared_keys,
     };
   }
@@ -597,15 +609,23 @@ export class FileService {
       throw new EncryptionError('Private key not available');
     }
 
+    // Decrypt file key and IV first
+    const decryptedKey = EncryptionService.decryptEcies(encryptedMeta.key, privKey);
+    const decryptedIv = EncryptionService.decryptEcies(encryptedMeta.iv, privKey);
+    const fileKey = Buffer.from(decryptedKey, 'hex');
+    const fileIv = Buffer.from(decryptedIv, 'hex');
+
+    const decryptedDeletedAt = await EncryptionService.decrypt(encryptedMeta.deleted_at, fileKey, fileIv);
+
     return {
       name: await EncryptionService.decrypt(encryptedMeta.name, key, iv),
-      path: EncryptionService.decryptEcies(encryptedMeta.path, privKey),
-      key: EncryptionService.decryptEcies(encryptedMeta.key, privKey),
-      iv: EncryptionService.decryptEcies(encryptedMeta.iv, privKey),
-      store_hash: encryptedMeta.store_hash,
+      path: await EncryptionService.decrypt(encryptedMeta.path, fileKey, fileIv),
+      key: decryptedKey,
+      iv: decryptedIv,
+      store_hash: await EncryptionService.decrypt(encryptedMeta.store_hash, fileKey, fileIv),
       size: parseInt(await EncryptionService.decrypt(encryptedMeta.size, key, iv)),
       created_at: await EncryptionService.decrypt(encryptedMeta.created_at, key, iv),
-      deleted_at: encryptedMeta.deleted_at ? await EncryptionService.decrypt(encryptedMeta.deleted_at, key, iv) : null,
+      deleted_at: decryptedDeletedAt === 'null' ? null : decryptedDeletedAt,
       shared_keys: encryptedMeta.shared_keys || {},
     };
   }
