@@ -41,10 +41,7 @@ export class FileService {
     const aleph = this.core.getAlephService();
 
     try {
-      await aleph.fetchAggregate(
-        AGGREGATE_KEYS.FILE_ENTRIES,
-        FileEntriesAggregateSchema
-      );
+      await aleph.fetchAggregate(AGGREGATE_KEYS.FILE_ENTRIES, FileEntriesAggregateSchema);
     } catch {
       // Create empty aggregate if it doesn't exist
       await aleph.createAggregate(AGGREGATE_KEYS.FILE_ENTRIES, { files: [] });
@@ -156,10 +153,7 @@ export class FileService {
     const privateKey = this.core.getSubAccountPrivateKey();
 
     try {
-      const aggregate = await aleph.fetchAggregate(
-        AGGREGATE_KEYS.FILE_ENTRIES,
-        FileEntriesAggregateSchema
-      );
+      const aggregate = await aleph.fetchAggregate(AGGREGATE_KEYS.FILE_ENTRIES, FileEntriesAggregateSchema);
 
       // Decrypt paths (they're stored encrypted)
       return aggregate.files.map(({ post_hash, path, shared_with }) => ({
@@ -222,7 +216,7 @@ export class FileService {
     const files = await this.fetchFilesMetaFromEntries(entries);
 
     if (!includeDeleted) {
-      return files.filter(f => !f.deleted_at);
+      return files.filter((f) => !f.deleted_at);
     }
 
     return files;
@@ -234,7 +228,7 @@ export class FileService {
    */
   async getFile(path: string): Promise<FileFullInfo> {
     const files = await this.listFiles(true);
-    const file = files.find(f => f.path === path);
+    const file = files.find((f) => f.path === path);
 
     if (!file) {
       throw new FileNotFoundError(path);
@@ -311,21 +305,15 @@ export class FileService {
     const aleph = this.core.getAlephService();
 
     try {
-      const files = await Promise.all(filePaths.map(path => this.getFile(path)));
+      const files = await Promise.all(filePaths.map((path) => this.getFile(path)));
 
       // Remove from file entries aggregate
-      await aleph.updateAggregate(
-        AGGREGATE_KEYS.FILE_ENTRIES,
-        FileEntriesAggregateSchema,
-        async (aggregate) => ({
-          files: aggregate.files.filter(entry =>
-            !files.some(f => f.post_hash === entry.post_hash)
-          )
-        })
-      );
+      await aleph.updateAggregate(AGGREGATE_KEYS.FILE_ENTRIES, FileEntriesAggregateSchema, async (aggregate) => ({
+        files: aggregate.files.filter((entry) => !files.some((f) => f.post_hash === entry.post_hash)),
+      }));
 
       // Forget STORE and POST messages
-      const hashesToForget = files.flatMap(f => [f.store_hash, f.post_hash]);
+      const hashesToForget = files.flatMap((f) => [f.store_hash, f.post_hash]);
       await aleph.deleteFiles(hashesToForget);
     } catch (error) {
       throw new FileError(`Failed to hard delete files: ${(error as Error).message}`);
@@ -360,17 +348,11 @@ export class FileService {
 
         // Update file entry with new encrypted path
         const newEncryptedPath = EncryptionService.encryptEcies(newPath, publicKey);
-        await aleph.updateAggregate(
-          AGGREGATE_KEYS.FILE_ENTRIES,
-          FileEntriesAggregateSchema,
-          async (aggregate) => ({
-            files: aggregate.files.map(entry =>
-              entry.post_hash === file.post_hash
-                ? { ...entry, path: newEncryptedPath }
-                : entry
-            )
-          })
-        );
+        await aleph.updateAggregate(AGGREGATE_KEYS.FILE_ENTRIES, FileEntriesAggregateSchema, async (aggregate) => ({
+          files: aggregate.files.map((entry) =>
+            entry.post_hash === file.post_hash ? { ...entry, path: newEncryptedPath } : entry
+          ),
+        }));
       }
     } catch (error) {
       throw new FileError(`Failed to move files: ${(error as Error).message}`);
@@ -387,11 +369,13 @@ export class FileService {
       const sourceFile = await this.getFile(sourcePath);
       const content = await this.downloadFile(sourceFile);
 
-      const [newFile] = await this.uploadFiles([{
-        name: newPath.split('/').pop() || newPath,
-        path: newPath,
-        content,
-      }]);
+      const [newFile] = await this.uploadFiles([
+        {
+          name: newPath.split('/').pop() || newPath,
+          path: newPath,
+          content,
+        },
+      ]);
 
       return newFile;
     } catch (error) {
@@ -431,17 +415,13 @@ export class FileService {
       );
 
       // Update file entry shared_with list
-      await aleph.updateAggregate(
-        AGGREGATE_KEYS.FILE_ENTRIES,
-        FileEntriesAggregateSchema,
-        async (aggregate) => ({
-          files: aggregate.files.map(entry =>
-            entry.post_hash === file.post_hash
-              ? { ...entry, shared_with: [...new Set([...entry.shared_with, contactPublicKey])] }
-              : entry
-          )
-        })
-      );
+      await aleph.updateAggregate(AGGREGATE_KEYS.FILE_ENTRIES, FileEntriesAggregateSchema, async (aggregate) => ({
+        files: aggregate.files.map((entry) =>
+          entry.post_hash === file.post_hash
+            ? { ...entry, shared_with: [...new Set([...entry.shared_with, contactPublicKey])] }
+            : entry
+        ),
+      }));
     } catch (error) {
       throw new FileError(`Failed to share file: ${(error as Error).message}`);
     }
@@ -472,17 +452,13 @@ export class FileService {
       );
 
       // Update file entry shared_with list
-      await aleph.updateAggregate(
-        AGGREGATE_KEYS.FILE_ENTRIES,
-        FileEntriesAggregateSchema,
-        async (aggregate) => ({
-          files: aggregate.files.map(entry =>
-            entry.post_hash === file.post_hash
-              ? { ...entry, shared_with: entry.shared_with.filter(pk => pk !== contactPublicKey) }
-              : entry
-          )
-        })
-      );
+      await aleph.updateAggregate(AGGREGATE_KEYS.FILE_ENTRIES, FileEntriesAggregateSchema, async (aggregate) => ({
+        files: aggregate.files.map((entry) =>
+          entry.post_hash === file.post_hash
+            ? { ...entry, shared_with: entry.shared_with.filter((pk) => pk !== contactPublicKey) }
+            : entry
+        ),
+      }));
     } catch (error) {
       throw new FileError(`Failed to unshare file: ${(error as Error).message}`);
     }
@@ -564,45 +540,37 @@ export class FileService {
     const aleph = this.core.getAlephService();
     const publicKey = this.core.getPublicKey();
 
-    await aleph.updateAggregate(
-      AGGREGATE_KEYS.FILE_ENTRIES,
-      FileEntriesAggregateSchema,
-      async (aggregate) => {
-        const newEntries = files.map(f => ({
-          path: EncryptionService.encryptEcies(f.path, publicKey),
-          post_hash: f.post_hash,
-          shared_with: f.shared_with || [],
-        }));
-        return { files: [...aggregate.files, ...newEntries] };
-      }
-    );
+    await aleph.updateAggregate(AGGREGATE_KEYS.FILE_ENTRIES, FileEntriesAggregateSchema, async (aggregate) => {
+      const newEntries = files.map((f) => ({
+        path: EncryptionService.encryptEcies(f.path, publicKey),
+        post_hash: f.post_hash,
+        shared_with: f.shared_with || [],
+      }));
+      return { files: [...aggregate.files, ...newEntries] };
+    });
   }
 
   private async encryptFileMeta(meta: FileMeta): Promise<any> {
-    const key = this.core.getEncryptionKey();
-    const iv = EncryptionService.generateIv();
     const publicKey = this.core.getPublicKey();
 
-    // Use file's own key/iv for path encryption (matches old service)
+    // Use file's own key/iv for all encryption
     const fileKey = Buffer.from(meta.key, 'hex');
     const fileIv = Buffer.from(meta.iv, 'hex');
 
     return {
-      name: await EncryptionService.encrypt(meta.name, key, iv),
+      name: await EncryptionService.encrypt(meta.name, fileKey, fileIv),
       path: await EncryptionService.encrypt(meta.path, fileKey, fileIv),
       key: EncryptionService.encryptEcies(meta.key, publicKey),
       iv: EncryptionService.encryptEcies(meta.iv, publicKey),
       store_hash: await EncryptionService.encrypt(meta.store_hash, fileKey, fileIv),
-      size: await EncryptionService.encrypt(meta.size.toString(), key, iv),
-      created_at: await EncryptionService.encrypt(meta.created_at, key, iv),
+      size: await EncryptionService.encrypt(meta.size.toString(), fileKey, fileIv),
+      created_at: await EncryptionService.encrypt(meta.created_at, fileKey, fileIv),
       deleted_at: await EncryptionService.encrypt(meta.deleted_at ?? 'null', fileKey, fileIv),
       shared_keys: meta.shared_keys,
     };
   }
 
   private async decryptFileMeta(encryptedMeta: any, privateKey?: string): Promise<FileMeta> {
-    const key = this.core.getEncryptionKey();
-    const iv = EncryptionService.generateIv();
     const privKey = privateKey || this.core.getSubAccountPrivateKey();
 
     if (!privKey) {
@@ -618,13 +586,13 @@ export class FileService {
     const decryptedDeletedAt = await EncryptionService.decrypt(encryptedMeta.deleted_at, fileKey, fileIv);
 
     return {
-      name: await EncryptionService.decrypt(encryptedMeta.name, key, iv),
+      name: await EncryptionService.decrypt(encryptedMeta.name, fileKey, fileIv),
       path: await EncryptionService.decrypt(encryptedMeta.path, fileKey, fileIv),
       key: decryptedKey,
       iv: decryptedIv,
       store_hash: await EncryptionService.decrypt(encryptedMeta.store_hash, fileKey, fileIv),
-      size: parseInt(await EncryptionService.decrypt(encryptedMeta.size, key, iv)),
-      created_at: await EncryptionService.decrypt(encryptedMeta.created_at, key, iv),
+      size: Number.parseInt(await EncryptionService.decrypt(encryptedMeta.size, fileKey, fileIv)),
+      created_at: await EncryptionService.decrypt(encryptedMeta.created_at, fileKey, fileIv),
       deleted_at: decryptedDeletedAt === 'null' ? null : decryptedDeletedAt,
       shared_keys: encryptedMeta.shared_keys || {},
     };

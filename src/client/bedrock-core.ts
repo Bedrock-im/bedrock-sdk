@@ -3,11 +3,7 @@ import { ETHAccount, getAccountFromProvider, importAccountFromPrivateKey } from 
 import { PrivateKey } from 'eciesjs';
 import web3 from 'web3';
 import { AuthenticationError } from '../types/errors';
-import {
-  ALEPH_GENERAL_CHANNEL,
-  BEDROCK_MESSAGE,
-  SECURITY_AGGREGATE_KEY
-} from '../types/schemas';
+import { ALEPH_GENERAL_CHANNEL, BEDROCK_MESSAGE, SECURITY_AGGREGATE_KEY } from '../types/schemas';
 import { AlephService } from './aleph-service';
 
 /**
@@ -22,10 +18,10 @@ export interface BedrockCoreConfig {
  * Core Bedrock functionality: authentication, sub-accounts, encryption key derivation
  */
 export class BedrockCore {
-  private mainAccount: ETHAccount;
-  private subAccount: ETHAccount;
-  private alephService: AlephService;
-  private encryptionPrivateKey: PrivateKey;
+  private readonly mainAccount: ETHAccount;
+  private readonly subAccount: ETHAccount;
+  private readonly alephService: AlephService;
+  private readonly encryptionPrivateKey: PrivateKey;
 
   private constructor(
     mainAccount: ETHAccount,
@@ -46,11 +42,7 @@ export class BedrockCore {
    * @param provider - EIP-1193 provider (for MetaMask/Rabby)
    * @param config - Optional configuration
    */
-  static async fromSignature(
-    signatureHash: string,
-    provider: any,
-    config?: BedrockCoreConfig
-  ): Promise<BedrockCore> {
+  static async fromSignature(signatureHash: string, provider: any, config?: BedrockCoreConfig): Promise<BedrockCore> {
     try {
       const cfg = {
         channel: config?.channel || ALEPH_GENERAL_CHANNEL,
@@ -252,17 +244,16 @@ export class BedrockCore {
 
       try {
         // Fetch existing security aggregate
-        const securitySettings = await accountClient.fetchAggregate(
+        const securitySettings = (await accountClient.fetchAggregate(
           mainAccount.address,
           SECURITY_AGGREGATE_KEY
-        ) as any;
+        )) as any;
 
         // Check if sub-account is already authorized
         const authorizations = securitySettings?.authorizations || [];
-        const isAuthorized = authorizations.find((auth: any) =>
-          auth.address === subAccount.address &&
-          auth.types === undefined &&
-          auth.channels?.includes(config.channel)
+        const isAuthorized = authorizations.find(
+          (auth: any) =>
+            auth.address === subAccount.address && auth.types === undefined && auth.channels?.includes(config.channel)
         );
 
         if (!isAuthorized) {

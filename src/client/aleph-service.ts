@@ -1,6 +1,6 @@
 import { AuthenticatedAlephHttpClient } from '@aleph-sdk/client';
-import { ItemType, StoreMessage, ForgetMessage, PostMessage, AggregateMessage } from '@aleph-sdk/message';
 import type { ETHAccount } from '@aleph-sdk/ethereum';
+import { AggregateMessage, ForgetMessage, ItemType, PostMessage, StoreMessage } from '@aleph-sdk/message';
 import { z } from 'zod';
 import { NetworkError } from '../types/errors';
 import { ALEPH_GENERAL_CHANNEL } from '../types/schemas';
@@ -9,11 +9,15 @@ import { ALEPH_GENERAL_CHANNEL } from '../types/schemas';
  * Low-level Aleph SDK wrapper (matches Bedrock implementation)
  */
 export class AlephService {
-  private subAccountClient: AuthenticatedAlephHttpClient;
-  private account: ETHAccount;
-  private channel: string;
+  private readonly subAccountClient: AuthenticatedAlephHttpClient;
+  private readonly account: ETHAccount;
+  private readonly channel: string;
 
-  constructor(account: ETHAccount, channel: string = ALEPH_GENERAL_CHANNEL, apiServer: string = 'https://api2.aleph.im') {
+  constructor(
+    account: ETHAccount,
+    channel: string = ALEPH_GENERAL_CHANNEL,
+    apiServer: string = 'https://api2.aleph.im'
+  ) {
     this.account = account;
     this.channel = channel;
     this.subAccountClient = new AuthenticatedAlephHttpClient(account, apiServer);
@@ -135,7 +139,7 @@ export class AlephService {
   async updateAggregate<S extends z.ZodTypeAny, T extends z.infer<S>>(
     key: string,
     schema: S,
-    update_content: (content: T) => Promise<T>,
+    update_content: (content: T) => Promise<T>
   ): Promise<AggregateMessage<T>> {
     try {
       const currentContent = await this.fetchAggregate(key, schema);
@@ -167,7 +171,7 @@ export class AlephService {
     type: string,
     schema: T,
     addresses: string[] = [this.account.address],
-    hashes: string[] = [],
+    hashes: string[] = []
   ) {
     try {
       return z.array(schema).parse(
@@ -178,7 +182,7 @@ export class AlephService {
             addresses,
             hashes,
           })
-        ).posts.map((post) => post.content),
+        ).posts.map((post) => post.content)
       ) as z.infer<T>[];
     } catch (error) {
       throw new NetworkError(`Failed to fetch posts: ${(error as Error).message}`);
@@ -189,7 +193,7 @@ export class AlephService {
     type: string,
     schema: T,
     addresses: string[] = [this.account.address],
-    hash: string,
+    hash: string
   ) {
     try {
       return schema.parse(
@@ -200,7 +204,7 @@ export class AlephService {
             addresses,
             hashes: [hash],
           })
-        ).content,
+        ).content
       ) as z.infer<T>;
     } catch (error) {
       throw new NetworkError(`Failed to fetch post: ${(error as Error).message}`);
@@ -212,7 +216,7 @@ export class AlephService {
     hash: string,
     addresses: string[],
     schema: S,
-    update_content: (content: T) => Promise<T>,
+    update_content: (content: T) => Promise<T>
   ): Promise<PostMessage<T>> {
     try {
       const currentContent = await this.fetchPost(type, schema, addresses, hash);

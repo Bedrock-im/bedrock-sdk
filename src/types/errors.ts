@@ -2,7 +2,10 @@
  * Base error class for Bedrock SDK
  */
 export class BedrockError extends Error {
-  constructor(message: string, public code?: string) {
+  constructor(
+    message: string,
+    public code?: string
+  ) {
     super(message);
     this.name = 'BedrockError';
     Object.setPrototypeOf(this, BedrockError.prototype);

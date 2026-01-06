@@ -84,10 +84,7 @@ export class BedrockClient {
    * const client = await BedrockClient.fromPrivateKey('0xabc123...');
    * ```
    */
-  static async fromPrivateKey(
-    privateKey: string,
-    config?: BedrockCoreConfig
-  ): Promise<BedrockClient> {
+  static async fromPrivateKey(privateKey: string, config?: BedrockCoreConfig): Promise<BedrockClient> {
     const core = await BedrockCore.fromPrivateKey(privateKey, config);
     const client = new BedrockClient(core);
     await client.setup();
@@ -106,10 +103,7 @@ export class BedrockClient {
    * const client = await BedrockClient.fromProvider(window.ethereum);
    * ```
    */
-  static async fromProvider(
-    provider: any,
-    config?: BedrockCoreConfig
-  ): Promise<BedrockClient> {
+  static async fromProvider(provider: any, config?: BedrockCoreConfig): Promise<BedrockClient> {
     const core = await BedrockCore.fromProvider(provider, config);
     const client = new BedrockClient(core);
     await client.setup();
@@ -130,11 +124,7 @@ export class BedrockClient {
    * const client = await BedrockClient.fromSignature(signature, window.ethereum);
    * ```
    */
-  static async fromSignature(
-    signatureHash: string,
-    provider: any,
-    config?: BedrockCoreConfig
-  ): Promise<BedrockClient> {
+  static async fromSignature(signatureHash: string, provider: any, config?: BedrockCoreConfig): Promise<BedrockClient> {
     const core = await BedrockCore.fromSignature(signatureHash, provider, config);
     const client = new BedrockClient(core);
     await client.setup();
@@ -174,11 +164,7 @@ export class BedrockClient {
    * WARNING: This will delete all user data from Aleph
    */
   async resetAllData(): Promise<void> {
-    await Promise.all([
-      this.resetFiles(),
-      this.resetContacts(),
-      this.resetKnowledgeBases(),
-    ]);
+    await Promise.all([this.resetFiles(), this.resetContacts(), this.resetKnowledgeBases()]);
   }
 
   /**
@@ -216,11 +202,7 @@ export class BedrockClient {
    * Setup all services (create aggregates if they don't exist)
    */
   private async setup(): Promise<void> {
-    await Promise.all([
-      this.files.setup(),
-      this.contacts.setup(),
-      this.knowledgeBases.setup(),
-    ]);
+    await Promise.all([this.files.setup(), this.contacts.setup(), this.knowledgeBases.setup()]);
   }
 }
 

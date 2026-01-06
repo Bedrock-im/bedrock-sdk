@@ -150,11 +150,7 @@ export class EncryptionService {
    * @param iv - 16-byte initialization vector
    * @returns Encrypted file buffer
    */
-  static async encryptFile(
-    fileBuffer: Buffer | ArrayBuffer,
-    key: Buffer,
-    iv: Buffer
-  ): Promise<Buffer> {
+  static async encryptFile(fileBuffer: Buffer | ArrayBuffer, key: Buffer, iv: Buffer): Promise<Buffer> {
     try {
       const buffer = Buffer.isBuffer(fileBuffer) ? fileBuffer : Buffer.from(fileBuffer);
 
@@ -175,11 +171,7 @@ export class EncryptionService {
    * @param iv - 16-byte initialization vector
    * @returns Decrypted file buffer
    */
-  static async decryptFile(
-    encryptedBuffer: Buffer | ArrayBuffer,
-    key: Buffer,
-    iv: Buffer
-  ): Promise<Buffer> {
+  static async decryptFile(encryptedBuffer: Buffer | ArrayBuffer, key: Buffer, iv: Buffer): Promise<Buffer> {
     try {
       const buffer = Buffer.isBuffer(encryptedBuffer) ? encryptedBuffer : Buffer.from(encryptedBuffer);
 
@@ -201,9 +193,7 @@ export class EncryptionService {
    */
   static encryptEcies(data: string, publicKey: string | Buffer): string {
     try {
-      const pubKeyBuffer = typeof publicKey === 'string'
-        ? CryptoUtils.hexToBuffer(publicKey)
-        : publicKey;
+      const pubKeyBuffer = typeof publicKey === 'string' ? CryptoUtils.hexToBuffer(publicKey) : publicKey;
 
       const dataBuffer = Buffer.from(data, 'utf-8');
       const encrypted = eciesEncrypt(pubKeyBuffer, dataBuffer);
@@ -221,9 +211,7 @@ export class EncryptionService {
    */
   static decryptEcies(encryptedData: string, privateKey: string | Buffer): string {
     try {
-      const privKeyBuffer = typeof privateKey === 'string'
-        ? CryptoUtils.hexToBuffer(privateKey)
-        : privateKey;
+      const privKeyBuffer = typeof privateKey === 'string' ? CryptoUtils.hexToBuffer(privateKey) : privateKey;
 
       const encryptedBuffer = CryptoUtils.hexToBuffer(encryptedData);
       const decrypted = eciesDecrypt(privKeyBuffer, encryptedBuffer);
@@ -283,78 +271,38 @@ export class EncryptionService {
 
   private static async encryptBrowser(data: string, key: Buffer, iv: Buffer): Promise<string> {
     const crypto = CryptoUtils.getCrypto();
-    const cryptoKey = await crypto.subtle.importKey(
-      'raw',
-      key,
-      { name: 'AES-CBC' },
-      false,
-      ['encrypt']
-    );
+    const cryptoKey = await crypto.subtle.importKey('raw', key, { name: 'AES-CBC' }, false, ['encrypt']);
 
     const dataBuffer = Buffer.from(data, 'utf-8');
-    const encrypted = await crypto.subtle.encrypt(
-      { name: 'AES-CBC', iv },
-      cryptoKey,
-      dataBuffer
-    );
+    const encrypted = await crypto.subtle.encrypt({ name: 'AES-CBC', iv }, cryptoKey, dataBuffer);
 
     return CryptoUtils.bufferToHex(Buffer.from(encrypted));
   }
 
   private static async decryptBrowser(encryptedData: string, key: Buffer, iv: Buffer): Promise<string> {
     const crypto = CryptoUtils.getCrypto();
-    const cryptoKey = await crypto.subtle.importKey(
-      'raw',
-      key,
-      { name: 'AES-CBC' },
-      false,
-      ['decrypt']
-    );
+    const cryptoKey = await crypto.subtle.importKey('raw', key, { name: 'AES-CBC' }, false, ['decrypt']);
 
     const encryptedBuffer = CryptoUtils.hexToBuffer(encryptedData);
-    const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-CBC', iv },
-      cryptoKey,
-      encryptedBuffer
-    );
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-CBC', iv }, cryptoKey, encryptedBuffer);
 
     return Buffer.from(decrypted).toString('utf-8');
   }
 
   private static async encryptFileBrowser(buffer: Buffer, key: Buffer, iv: Buffer): Promise<Buffer> {
     const crypto = CryptoUtils.getCrypto();
-    const cryptoKey = await crypto.subtle.importKey(
-      'raw',
-      key,
-      { name: 'AES-CBC' },
-      false,
-      ['encrypt']
-    );
+    const cryptoKey = await crypto.subtle.importKey('raw', key, { name: 'AES-CBC' }, false, ['encrypt']);
 
-    const encrypted = await crypto.subtle.encrypt(
-      { name: 'AES-CBC', iv },
-      cryptoKey,
-      buffer
-    );
+    const encrypted = await crypto.subtle.encrypt({ name: 'AES-CBC', iv }, cryptoKey, buffer);
 
     return Buffer.from(encrypted);
   }
 
   private static async decryptFileBrowser(buffer: Buffer, key: Buffer, iv: Buffer): Promise<Buffer> {
     const crypto = CryptoUtils.getCrypto();
-    const cryptoKey = await crypto.subtle.importKey(
-      'raw',
-      key,
-      { name: 'AES-CBC' },
-      false,
-      ['decrypt']
-    );
+    const cryptoKey = await crypto.subtle.importKey('raw', key, { name: 'AES-CBC' }, false, ['decrypt']);
 
-    const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-CBC', iv },
-      cryptoKey,
-      buffer
-    );
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-CBC', iv }, cryptoKey, buffer);
 
     return Buffer.from(decrypted);
   }

@@ -1,20 +1,15 @@
 import { BedrockCore } from '../client/bedrock-core';
 import { ContactError } from '../types/errors';
 import type { FileFullInfo } from '../types/schemas';
-import {
-  AGGREGATE_KEYS,
-  Contact,
-  ContactsAggregateSchema,
-  FileEntriesAggregateSchema,
-} from '../types/schemas';
+import { AGGREGATE_KEYS, Contact, ContactsAggregateSchema, FileEntriesAggregateSchema } from '../types/schemas';
 import { FileService } from './file-service';
 
 /**
  * Contact service for managing contacts and shared files
  */
 export class ContactService {
-  private core: BedrockCore;
-  private fileService: FileService;
+  private readonly core: BedrockCore;
+  private readonly fileService: FileService;
 
   constructor(core: BedrockCore, fileService: FileService) {
     this.core = core;
@@ -28,10 +23,7 @@ export class ContactService {
     const aleph = this.core.getAlephService();
 
     try {
-      await aleph.fetchAggregate(
-        AGGREGATE_KEYS.CONTACTS,
-        ContactsAggregateSchema
-      );
+      await aleph.fetchAggregate(AGGREGATE_KEYS.CONTACTS, ContactsAggregateSchema);
     } catch {
       // Create empty aggregate if it doesn't exist
       await aleph.createAggregate(AGGREGATE_KEYS.CONTACTS, { contacts: [] });
@@ -45,10 +37,7 @@ export class ContactService {
     const aleph = this.core.getAlephService();
 
     try {
-      const aggregate = await aleph.fetchAggregate(
-        AGGREGATE_KEYS.CONTACTS,
-        ContactsAggregateSchema
-      );
+      const aggregate = await aleph.fetchAggregate(AGGREGATE_KEYS.CONTACTS, ContactsAggregateSchema);
       return aggregate.contacts;
     } catch (error) {
       throw new ContactError(`Failed to fetch contacts: ${(error as Error).message}`);
@@ -61,7 +50,7 @@ export class ContactService {
    */
   async getContact(publicKey: string): Promise<Contact> {
     const contacts = await this.listContacts();
-    const contact = contacts.find(c => c.public_key === publicKey);
+    const contact = contacts.find((c) => c.public_key === publicKey);
 
     if (!contact) {
       throw new ContactError(`Contact not found: ${publicKey}`);
@@ -76,7 +65,7 @@ export class ContactService {
    */
   async getContactByAddress(address: string): Promise<Contact> {
     const contacts = await this.listContacts();
-    const contact = contacts.find(c => c.address.toLowerCase() === address.toLowerCase());
+    const contact = contacts.find((c) => c.address.toLowerCase() === address.toLowerCase());
 
     if (!contact) {
       throw new ContactError(`Contact not found: ${address}`);
@@ -98,7 +87,7 @@ export class ContactService {
       // Check if contact already exists
       const contacts = await this.listContacts();
       const existingContact = contacts.find(
-        c => c.public_key === publicKey || c.address.toLowerCase() === address.toLowerCase()
+        (c) => c.public_key === publicKey || c.address.toLowerCase() === address.toLowerCase()
       );
 
       if (existingContact) {
@@ -113,13 +102,9 @@ export class ContactService {
       };
 
       // Add to contacts aggregate
-      await aleph.updateAggregate(
-        AGGREGATE_KEYS.CONTACTS,
-        ContactsAggregateSchema,
-        async (aggregate) => ({
-          contacts: [...aggregate.contacts, newContact]
-        })
-      );
+      await aleph.updateAggregate(AGGREGATE_KEYS.CONTACTS, ContactsAggregateSchema, async (aggregate) => ({
+        contacts: [...aggregate.contacts, newContact],
+      }));
 
       return newContact;
     } catch (error) {
@@ -142,13 +127,9 @@ export class ContactService {
       await this.getContact(publicKey);
 
       // Remove from contacts aggregate
-      await aleph.updateAggregate(
-        AGGREGATE_KEYS.CONTACTS,
-        ContactsAggregateSchema,
-        async (aggregate) => ({
-          contacts: aggregate.contacts.filter(c => c.public_key !== publicKey)
-        })
-      );
+      await aleph.updateAggregate(AGGREGATE_KEYS.CONTACTS, ContactsAggregateSchema, async (aggregate) => ({
+        contacts: aggregate.contacts.filter((c) => c.public_key !== publicKey),
+      }));
     } catch (error) {
       if (error instanceof ContactError) {
         throw error;
@@ -176,15 +157,9 @@ export class ContactService {
       };
 
       // Update in contacts aggregate
-      await aleph.updateAggregate(
-        AGGREGATE_KEYS.CONTACTS,
-        ContactsAggregateSchema,
-        async (aggregate) => ({
-          contacts: aggregate.contacts.map(c =>
-            c.public_key === publicKey ? updatedContact : c
-          )
-        })
-      );
+      await aleph.updateAggregate(AGGREGATE_KEYS.CONTACTS, ContactsAggregateSchema, async (aggregate) => ({
+        contacts: aggregate.contacts.map((c) => (c.public_key === publicKey ? updatedContact : c)),
+      }));
 
       return updatedContact;
     } catch (error) {
@@ -208,9 +183,7 @@ export class ContactService {
       const entries = await this.fileService.fetchFileEntries();
 
       // Filter entries shared with this contact
-      const sharedEntries = entries.filter(entry =>
-        entry.shared_with.includes(publicKey)
-      );
+      const sharedEntries = entries.filter((entry) => entry.shared_with.includes(publicKey));
 
       // Fetch metadata for shared files
       const files = await this.fileService.fetchFilesMetaFromEntries(sharedEntries);
@@ -237,18 +210,16 @@ export class ContactService {
       const contactEntries = await aleph.fetchAggregate(
         AGGREGATE_KEYS.FILE_ENTRIES,
         FileEntriesAggregateSchema,
-        contact.address  // Important: contact's address, not current user's
+        contact.address // Important: contact's address, not current user's
       );
 
       // Filter entries shared with current user
-      const sharedEntries = contactEntries.files.filter(entry =>
-        entry.shared_with.includes(currentUserPublicKey)
-      );
+      const sharedEntries = contactEntries.files.filter((entry) => entry.shared_with.includes(currentUserPublicKey));
 
       // Fetch metadata from contact's POSTs using fileService
       const files = await this.fileService.fetchFilesMetaFromEntries(
         sharedEntries,
-        contact.address  // Owner is the contact
+        contact.address // Owner is the contact
       );
 
       return files;

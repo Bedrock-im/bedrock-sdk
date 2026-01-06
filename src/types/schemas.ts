@@ -27,12 +27,18 @@ export const POST_TYPES = {
 /**
  * 64-character hex string (32 bytes)
  */
-export const HexString64Schema = z.string().length(64).regex(/^[0-9a-f]{64}$/);
+export const HexString64Schema = z
+  .string()
+  .length(64)
+  .regex(/^[0-9a-f]{64}$/);
 
 /**
  * 32-character hex string (16 bytes)
  */
-export const HexString32Schema = z.string().length(32).regex(/^[0-9a-f]{32}$/);
+export const HexString32Schema = z
+  .string()
+  .length(32)
+  .regex(/^[0-9a-f]{32}$/);
 
 /**
  * ISO 8601 datetime string
@@ -65,16 +71,21 @@ export type FileEntry = z.infer<typeof FileEntrySchema>;
 export const FileMetaEncryptedSchema = z.object({
   name: z.string(), // Encrypted filename
   path: z.string(), // Encrypted path
-  key: HexString64Schema, // Encrypted AES key
-  iv: HexString32Schema, // Encrypted IV
-  store_hash: HexString64Schema, // Aleph STORE hash
+  key: z.string(), // Encrypted AES key (ECIES encrypted)
+  iv: z.string(), // Encrypted IV (ECIES encrypted)
+  store_hash: z.string(), // Encrypted Aleph STORE hash
   size: z.string(), // Encrypted size
   created_at: z.string(), // Encrypted datetime
   deleted_at: z.string().nullable(), // Encrypted datetime or null
-  shared_keys: z.record(z.string(), z.object({
-    key: z.string(), // Encrypted key for recipient
-    iv: z.string(), // Encrypted IV for recipient
-  })).default({}),
+  shared_keys: z
+    .record(
+      z.string(),
+      z.object({
+        key: z.string(), // Encrypted key for recipient
+        iv: z.string(), // Encrypted IV for recipient
+      })
+    )
+    .default({}),
 });
 
 export type FileMetaEncrypted = z.infer<typeof FileMetaEncryptedSchema>;
@@ -91,10 +102,15 @@ export const FileMetaSchema = z.object({
   size: z.number(),
   created_at: DatetimeSchema,
   deleted_at: DatetimeSchema.nullable(),
-  shared_keys: z.record(z.string(), z.object({
-    key: HexString64Schema,
-    iv: HexString32Schema,
-  })).default({}),
+  shared_keys: z
+    .record(
+      z.string(),
+      z.object({
+        key: HexString64Schema,
+        iv: HexString32Schema,
+      })
+    )
+    .default({}),
 });
 
 export type FileMeta = z.infer<typeof FileMetaSchema>;
@@ -222,13 +238,15 @@ export type FileEntriesAggregate = z.infer<typeof FileEntriesAggregateSchema>;
  * Sub-account authorization in security aggregate
  */
 export const SecurityAggregateSchema = z.object({
-  authorizations: z.array(z.object({
-    address: AddressSchema,
-    chain: z.string(),
-    channels: z.array(z.string()).optional(),
-    post_types: z.array(z.string()).optional(),
-    aggregate_keys: z.array(z.string()).optional(),
-  })),
+  authorizations: z.array(
+    z.object({
+      address: AddressSchema,
+      chain: z.string(),
+      channels: z.array(z.string()).optional(),
+      post_types: z.array(z.string()).optional(),
+      aggregate_keys: z.array(z.string()).optional(),
+    })
+  ),
 });
 
 export type SecurityAggregate = z.infer<typeof SecurityAggregateSchema>;
