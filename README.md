@@ -34,7 +34,7 @@ const client = await BedrockClient.fromPrivateKey('0x...');
 // Upload a file
 const files = await client.files.uploadFiles([{
   name: 'hello.txt',
-  path: 'documents/hello.txt',
+  path: '/documents/hello.txt',
   content: Buffer.from('Hello, Bedrock!'),
 }]);
 
@@ -74,7 +74,7 @@ const buffer = Buffer.from(await file.arrayBuffer());
 
 await client.files.uploadFiles([{
   name: file.name,
-  path: `uploads/${file.name}`,
+  path: `/uploads/${file.name}`,
   content: buffer,
 }]);
 ```
@@ -121,12 +121,12 @@ const client = await BedrockClient.fromSignature(
 const files = await client.files.uploadFiles([
   {
     name: 'document.pdf',
-    path: 'documents/document.pdf',
+    path: '/documents/document.pdf',
     content: fileBuffer, // Buffer or File
   },
   {
     name: 'image.jpg',
-    path: 'images/image.jpg',
+    path: '/images/image.jpg',
     content: imageBuffer,
   },
 ]);
