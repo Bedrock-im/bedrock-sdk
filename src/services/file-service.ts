@@ -28,7 +28,7 @@ export interface FileInput {
  * File service for managing encrypted files
  */
 export class FileService {
-  private core: BedrockCore;
+  private readonly core: BedrockCore;
 
   constructor(core: BedrockCore) {
     this.core = core;
@@ -250,11 +250,11 @@ export class FileService {
       for (const path of filePaths) {
         const file = await this.getFile(path);
 
-        // Update metadata with deleted_at
-        await aleph.updatePost(
+        // Update metadata with deleted_at (creates new POST)
+        const updatedPost = await aleph.updatePost(
           POST_TYPES.FILE,
           file.post_hash,
-          [this.core.getMainAddress()],
+          [aleph.getAddress()],
           FileMetaEncryptedSchema,
           async (encryptedMeta) => {
             const decryptedMeta = await this.decryptFileMeta(encryptedMeta);
@@ -262,6 +262,13 @@ export class FileService {
             return await this.encryptFileMeta(decryptedMeta);
           }
         );
+
+        // Update aggregate with new post_hash
+        await aleph.updateAggregate(AGGREGATE_KEYS.FILE_ENTRIES, FileEntriesAggregateSchema, async (aggregate) => ({
+          files: aggregate.files.map((entry) =>
+            entry.post_hash === file.post_hash ? { ...entry, post_hash: updatedPost.item_hash } : entry
+          ),
+        }));
       }
     } catch (error) {
       throw new FileError(`Failed to soft delete files: ${(error as Error).message}`);
@@ -279,11 +286,11 @@ export class FileService {
       for (const path of filePaths) {
         const file = await this.getFile(path);
 
-        // Update metadata to remove deleted_at
-        await aleph.updatePost(
+        // Update metadata to remove deleted_at (creates new POST)
+        const updatedPost = await aleph.updatePost(
           POST_TYPES.FILE,
           file.post_hash,
-          [this.core.getMainAddress()],
+          [aleph.getAddress()],
           FileMetaEncryptedSchema,
           async (encryptedMeta) => {
             const decryptedMeta = await this.decryptFileMeta(encryptedMeta);
@@ -291,6 +298,13 @@ export class FileService {
             return await this.encryptFileMeta(decryptedMeta);
           }
         );
+
+        // Update aggregate with new post_hash
+        await aleph.updateAggregate(AGGREGATE_KEYS.FILE_ENTRIES, FileEntriesAggregateSchema, async (aggregate) => ({
+          files: aggregate.files.map((entry) =>
+            entry.post_hash === file.post_hash ? { ...entry, post_hash: updatedPost.item_hash } : entry
+          ),
+        }));
       }
     } catch (error) {
       throw new FileError(`Failed to restore files: ${(error as Error).message}`);
@@ -332,11 +346,11 @@ export class FileService {
       for (const { oldPath, newPath } of moves) {
         const file = await this.getFile(oldPath);
 
-        // Update metadata with new path and name
-        await aleph.updatePost(
+        // Update metadata with new path and name (creates new POST)
+        const updatedPost = await aleph.updatePost(
           POST_TYPES.FILE,
           file.post_hash,
-          [this.core.getMainAddress()],
+          [aleph.getAddress()],
           FileMetaEncryptedSchema,
           async (encryptedMeta) => {
             const decryptedMeta = await this.decryptFileMeta(encryptedMeta);
@@ -346,11 +360,13 @@ export class FileService {
           }
         );
 
-        // Update file entry with new encrypted path
+        // Update file entry with new encrypted path and new post_hash
         const newEncryptedPath = EncryptionService.encryptEcies(newPath, publicKey);
         await aleph.updateAggregate(AGGREGATE_KEYS.FILE_ENTRIES, FileEntriesAggregateSchema, async (aggregate) => ({
           files: aggregate.files.map((entry) =>
-            entry.post_hash === file.post_hash ? { ...entry, path: newEncryptedPath } : entry
+            entry.post_hash === file.post_hash
+              ? { ...entry, path: newEncryptedPath, post_hash: updatedPost.item_hash }
+              : entry
           ),
         }));
       }
@@ -398,11 +414,11 @@ export class FileService {
       const encryptedKey = EncryptionService.encryptEcies(file.key, contactPublicKey);
       const encryptedIv = EncryptionService.encryptEcies(file.iv, contactPublicKey);
 
-      // Update metadata with shared keys
-      await aleph.updatePost(
+      // Update metadata with shared keys (creates new POST)
+      const updatedPost = await aleph.updatePost(
         POST_TYPES.FILE,
         file.post_hash,
-        [this.core.getMainAddress()],
+        [aleph.getAddress()],
         FileMetaEncryptedSchema,
         async (encryptedMeta) => {
           const decryptedMeta = await this.decryptFileMeta(encryptedMeta);
@@ -414,11 +430,15 @@ export class FileService {
         }
       );
 
-      // Update file entry shared_with list
+      // Update file entry with new post_hash and shared_with list
       await aleph.updateAggregate(AGGREGATE_KEYS.FILE_ENTRIES, FileEntriesAggregateSchema, async (aggregate) => ({
         files: aggregate.files.map((entry) =>
           entry.post_hash === file.post_hash
-            ? { ...entry, shared_with: [...new Set([...entry.shared_with, contactPublicKey])] }
+            ? {
+                ...entry,
+                post_hash: updatedPost.item_hash,
+                shared_with: [...new Set([...entry.shared_with, contactPublicKey])],
+              }
             : entry
         ),
       }));
@@ -438,11 +458,11 @@ export class FileService {
     try {
       const file = await this.getFile(filePath);
 
-      // Remove shared keys from metadata
-      await aleph.updatePost(
+      // Remove shared keys from metadata (creates new POST)
+      const updatedPost = await aleph.updatePost(
         POST_TYPES.FILE,
         file.post_hash,
-        [this.core.getMainAddress()],
+        [aleph.getAddress()],
         FileMetaEncryptedSchema,
         async (encryptedMeta) => {
           const decryptedMeta = await this.decryptFileMeta(encryptedMeta);
@@ -451,11 +471,15 @@ export class FileService {
         }
       );
 
-      // Update file entry shared_with list
+      // Update file entry with new post_hash and shared_with list
       await aleph.updateAggregate(AGGREGATE_KEYS.FILE_ENTRIES, FileEntriesAggregateSchema, async (aggregate) => ({
         files: aggregate.files.map((entry) =>
           entry.post_hash === file.post_hash
-            ? { ...entry, shared_with: entry.shared_with.filter((pk) => pk !== contactPublicKey) }
+            ? {
+                ...entry,
+                post_hash: updatedPost.item_hash,
+                shared_with: entry.shared_with.filter((pk) => pk !== contactPublicKey),
+              }
             : entry
         ),
       }));
