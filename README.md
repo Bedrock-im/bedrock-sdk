@@ -132,6 +132,19 @@ const files = await client.files.uploadFiles([
 ]);
 ```
 
+#### Edit Files
+
+```typescript
+const [file] = await client.files.uploadFiles([
+  {
+    name: 'document.txt',
+    path: '/documents/document.txt',
+    content: fileBuffer, // Buffer or File
+  },
+]);
+
+const editedFile = await client.files.editFileContent(file, editedFileBuffer);
+```
 #### List Files
 
 ```typescript
