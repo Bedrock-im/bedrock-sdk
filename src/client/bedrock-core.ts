@@ -42,7 +42,11 @@ export class BedrockCore {
    * @param provider - EIP-1193 provider (for MetaMask/Rabby)
    * @param config - Optional configuration
    */
-  static async fromSignature(signatureHash: string, provider: any, config?: BedrockCoreConfig): Promise<BedrockCore> {
+  static async fromSignature(
+    signatureHash: string,
+    provider: any,
+    config?: BedrockCoreConfig & { providerSignature?: string }
+  ): Promise<BedrockCore> {
     try {
       const cfg = {
         channel: config?.channel || ALEPH_GENERAL_CHANNEL,
@@ -69,9 +73,14 @@ export class BedrockCore {
         } else {
           throw new AuthenticationError('window.ethereum not available');
         }
+      } else if (config?.providerSignature === undefined) {
+        throw new AuthenticationError('Invalid provider');
       } else {
-        // For other wallets or standard EIP-1193 providers
-        mainAccount = await getAccountFromProvider(provider);
+        const externalWalletPrivateKey = web3.utils.sha3(config.providerSignature);
+        if (externalWalletPrivateKey === undefined) {
+          throw new AuthenticationError('Failed to derive private key from signature');
+        }
+        mainAccount = importAccountFromPrivateKey(externalWalletPrivateKey);
       }
 
       // Create sub-account
