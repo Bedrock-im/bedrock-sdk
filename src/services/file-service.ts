@@ -575,7 +575,7 @@ export class FileService {
    */
   static async fetchPublicFileMeta(postHash: string): Promise<PublicFileMeta | null> {
     try {
-      const client = new AlephHttpClient('https://api2.aleph.im');
+      const client = new AlephHttpClient('https://poc-aleph-ccn.reza.dev');
       const post = await client.getPost({
         channels: [ALEPH_GENERAL_CHANNEL],
         types: [POST_TYPES.PUBLIC_FILE],
@@ -595,7 +595,7 @@ export class FileService {
    */
   static async downloadPublicFile(storeHash: string): Promise<ArrayBuffer> {
     try {
-      const client = new AlephHttpClient('https://api2.aleph.im');
+      const client = new AlephHttpClient('https://poc-aleph-ccn.reza.dev');
       return await client.downloadFile(storeHash);
     } catch (error) {
       throw new FileError(`Failed to download public file: ${(error as Error).message}`);

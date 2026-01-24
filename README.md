@@ -109,7 +109,7 @@ const signature = await wallet.signMessage({ message: 'Bedrock.im' });
 const client = await BedrockClient.fromSignature(
   signature,
   window.ethereum,
-  { apiServer: 'https://api2.aleph.im' }
+  { apiServer: 'https://poc-aleph-ccn.reza.dev' }
 );
 ```
 
@@ -427,13 +427,13 @@ Bedrock uses a dual encryption approach:
 ```typescript
 const client = await BedrockClient.fromPrivateKey(privateKey, {
   channel: 'MY_CUSTOM_CHANNEL',        // Default: 'bedrock'
-  apiServer: 'https://api2.aleph.im',  // Default: 'https://api2.aleph.im'
+  apiServer: 'https://poc-aleph-ccn.reza.dev',  // Default: 'https://poc-aleph-ccn.reza.dev'
 });
 ```
 
 **Configuration Options:**
 - `channel`: Aleph channel for data isolation (default: `'bedrock'`)
-- `apiServer`: Aleph API server URL (default: `'https://api2.aleph.im'`)
+- `apiServer`: Aleph API server URL (default: `'https://poc-aleph-ccn.reza.dev'`)
 
 ## Development
 

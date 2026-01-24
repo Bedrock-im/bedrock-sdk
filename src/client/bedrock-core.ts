@@ -46,7 +46,7 @@ export class BedrockCore {
     try {
       const cfg = {
         channel: config?.channel || ALEPH_GENERAL_CHANNEL,
-        apiServer: config?.apiServer || 'https://api2.aleph.im',
+        apiServer: config?.apiServer || 'https://poc-aleph-ccn.reza.dev',
       };
 
       // Derive private key from signature
@@ -98,7 +98,7 @@ export class BedrockCore {
     try {
       const cfg = {
         channel: config?.channel || ALEPH_GENERAL_CHANNEL,
-        apiServer: config?.apiServer || 'https://api2.aleph.im',
+        apiServer: config?.apiServer || 'https://poc-aleph-ccn.reza.dev',
       };
 
       // Ensure 0x prefix

@@ -16,7 +16,7 @@ export class AlephService {
   constructor(
     account: ETHAccount,
     channel: string = ALEPH_GENERAL_CHANNEL,
-    apiServer: string = 'https://api2.aleph.im'
+    apiServer: string = 'https://poc-aleph-ccn.reza.dev'
   ) {
     this.account = account;
     this.channel = channel;
