@@ -58,9 +58,19 @@ export class FileService {
     const aleph = this.core.getAlephService();
     const publicKey = this.core.getPublicKey();
     const uploadedFiles: FileFullInfo[] = [];
+    const existingFiles = await this.listFiles();
+
+    const filesToUpload = files.filter((file) => {
+      const filterIn = !existingFiles.some(
+        (existingFile) =>
+          !existingFile.deleted_at && existingFile.path === (directoryPath ? `${directoryPath}${file.path}` : file.path)
+      );
+      console.log(`Keeping ${file} in ? ${filterIn ? 'yes' : 'no'}`);
+      return filterIn;
+    });
 
     try {
-      for (const file of files) {
+      for (const file of filesToUpload) {
         // Generate encryption key and IV
         const key = EncryptionService.generateKey();
         const iv = EncryptionService.generateIv();
@@ -118,6 +128,42 @@ export class FileService {
       return uploadedFiles;
     } catch (error) {
       throw new FileError(`Failed to upload files: ${(error as Error).message}`);
+    }
+  }
+
+  async editFileContent(fileInfo: FileFullInfo, newContent: Buffer): Promise<FileFullInfo> {
+    const aleph = this.core.getAlephService();
+    const privateKey = this.core.getSubAccountPrivateKey();
+    try {
+      const postResult = await aleph.updatePost(
+        POST_TYPES.FILE,
+        fileInfo.post_hash,
+        [aleph.getAddress()],
+        FileMetaEncryptedSchema,
+        async (encryptedMeta) => {
+          const decryptedMeta = await this.decryptFileMeta(encryptedMeta);
+          const encryptedContent = await EncryptionService.encryptFile(
+            newContent,
+            Buffer.from(decryptedMeta.key, 'hex'),
+            Buffer.from(decryptedMeta.iv, 'hex')
+          );
+          const uploadResult = await aleph.uploadFile(encryptedContent);
+          decryptedMeta.store_hash = uploadResult.item_hash;
+          fileInfo.store_hash = decryptedMeta.store_hash;
+          return await this.encryptFileMeta(decryptedMeta);
+        }
+      );
+      fileInfo.post_hash = postResult.item_hash;
+      await aleph.updateAggregate(AGGREGATE_KEYS.FILE_ENTRIES, FileEntriesAggregateSchema, async (aggregate) => ({
+        files: aggregate.files.map((entry) =>
+          fileInfo.path === EncryptionService.decryptEcies(entry.path, privateKey)
+            ? { ...entry, post_hash: fileInfo.post_hash }
+            : entry
+        ),
+      }));
+      return fileInfo;
+    } catch (error) {
+      throw new FileError(`Failed to edit file's content: ${(error as Error).message}`);
     }
   }
 
