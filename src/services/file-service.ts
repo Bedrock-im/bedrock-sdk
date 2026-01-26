@@ -1,10 +1,10 @@
 import { AlephHttpClient } from '@aleph-sdk/client';
+import { z } from 'zod';
 import { BedrockCore } from '../client/bedrock-core';
 import { EncryptionService } from '../crypto/encryption';
-import { EncryptionError, FileError, FileConflictError, FileNotFoundError } from '../types/errors';
+import { EncryptionError, FileConflictError, FileError, FileNotFoundError } from '../types/errors';
 import {
   AGGREGATE_KEYS,
-  ALEPH_GENERAL_CHANNEL,
   FileEntriesAggregateSchema,
   FileEntry,
   FileFullInfo,
@@ -587,13 +587,16 @@ export class FileService {
   static async fetchPublicFileMeta(postHash: string): Promise<PublicFileMeta | null> {
     try {
       const client = new AlephHttpClient('https://poc-aleph-ccn.reza.dev');
-      const post = await client.getPost({
-        channels: [ALEPH_GENERAL_CHANNEL],
-        types: [POST_TYPES.PUBLIC_FILE],
-        hashes: [postHash],
-      });
+      const message = await client.getMessage(postHash);
 
-      return PublicFileMetaSchema.parse(post.content);
+      // Try parsing content directly first, if that fails try nested content
+      try {
+        return PublicFileMetaSchema.parse(message.content);
+      } catch {
+        // POST messages might be nested: { content: { content: data } }
+        const postContent = message.content as { content: unknown };
+        return PublicFileMetaSchema.parse(postContent.content);
+      }
     } catch {
       return null;
     }
@@ -607,7 +610,21 @@ export class FileService {
   static async downloadPublicFile(storeHash: string): Promise<ArrayBuffer> {
     try {
       const client = new AlephHttpClient('https://poc-aleph-ccn.reza.dev');
-      return await client.downloadFile(storeHash);
+
+      // Get STORE message to extract IPFS hash
+      const storeMessage = await client.getMessage(storeHash);
+      const ContentSchema = z.object({
+        address: z.string(),
+        item_type: z.string(),
+        item_hash: z.string(),
+        time: z.number(),
+      });
+
+      const { success, data } = ContentSchema.safeParse(storeMessage.content);
+      if (!success) throw new Error('Invalid STORE message structure');
+
+      // Download actual file from IPFS
+      return await client.downloadFile(data.item_hash);
     } catch (error) {
       throw new FileError(`Failed to download public file: ${(error as Error).message}`);
     }
