@@ -1,6 +1,6 @@
 {
   "name": "bedrock-ts-sdk",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "TypeScript SDK for Bedrock - decentralized cloud storage powered by Aleph",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

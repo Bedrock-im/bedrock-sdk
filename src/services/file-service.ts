@@ -691,9 +691,31 @@ export class FileService {
       throw new EncryptionError('Private key not available');
     }
 
-    // Decrypt file key and IV first
-    const decryptedKey = EncryptionService.decryptEcies(encryptedMeta.key, privKey);
-    const decryptedIv = EncryptionService.decryptEcies(encryptedMeta.iv, privKey);
+    // Decrypt file key and IV
+    let decryptedKey: string;
+    let decryptedIv: string;
+
+    // If privateKey was not explicitly provided (undefined), this might be a shared file
+    // Check if shared_keys exists for current user
+    if (!privateKey && encryptedMeta.shared_keys) {
+      const currentUserPublicKey = this.core.getPublicKey();
+      const sharedKeys = encryptedMeta.shared_keys[currentUserPublicKey];
+
+      if (sharedKeys) {
+        // This file is shared with us - decrypt from shared_keys
+        decryptedKey = EncryptionService.decryptEcies(sharedKeys.key, privKey);
+        decryptedIv = EncryptionService.decryptEcies(sharedKeys.iv, privKey);
+      } else {
+        // Not shared with us, decrypt owner's keys (will likely fail)
+        decryptedKey = EncryptionService.decryptEcies(encryptedMeta.key, privKey);
+        decryptedIv = EncryptionService.decryptEcies(encryptedMeta.iv, privKey);
+      }
+    } else {
+      // Explicit privateKey provided or no shared_keys - decrypt owner's keys
+      decryptedKey = EncryptionService.decryptEcies(encryptedMeta.key, privKey);
+      decryptedIv = EncryptionService.decryptEcies(encryptedMeta.iv, privKey);
+    }
+
     const fileKey = Buffer.from(decryptedKey, 'hex');
     const fileIv = Buffer.from(decryptedIv, 'hex');
 
