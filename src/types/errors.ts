@@ -58,6 +58,18 @@ export class FileNotFoundError extends FileError {
 }
 
 /**
+ * File path conflict error
+ */
+export class FileConflictError extends FileError {
+  constructor(path: string) {
+    super(`File path conflict: ${path} already exists`);
+    this.name = 'FileConflictError';
+    this.code = 'FILE_CONFLICT';
+    Object.setPrototypeOf(this, FileConflictError.prototype);
+  }
+}
+
+/**
  * Contact-related errors
  */
 export class ContactError extends BedrockError {

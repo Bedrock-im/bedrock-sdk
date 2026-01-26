@@ -1,7 +1,7 @@
 import { AlephHttpClient } from '@aleph-sdk/client';
 import { BedrockCore } from '../client/bedrock-core';
 import { EncryptionService } from '../crypto/encryption';
-import { EncryptionError, FileError, FileNotFoundError } from '../types/errors';
+import { EncryptionError, FileError, FileConflictError, FileNotFoundError } from '../types/errors';
 import {
   AGGREGATE_KEYS,
   ALEPH_GENERAL_CHANNEL,
@@ -53,24 +53,19 @@ export class FileService {
    * @param files - Array of files to upload
    * @param directoryPath - Optional directory path prefix
    * @returns Array of uploaded file info
+   * @throws FileConflictError if any file path conflicts with non-trashed file
    */
   async uploadFiles(files: FileInput[], directoryPath: string = ''): Promise<FileFullInfo[]> {
     const aleph = this.core.getAlephService();
     const publicKey = this.core.getPublicKey();
     const uploadedFiles: FileFullInfo[] = [];
-    const existingFiles = await this.listFiles();
 
-    const filesToUpload = files.filter((file) => {
-      const filterIn = !existingFiles.some(
-        (existingFile) =>
-          !existingFile.deleted_at && existingFile.path === (directoryPath ? `${directoryPath}${file.path}` : file.path)
-      );
-      console.log(`Keeping ${file} in ? ${filterIn ? 'yes' : 'no'}`);
-      return filterIn;
-    });
+    // Check for path conflicts
+    const fullPaths = files.map((f) => (directoryPath ? `${directoryPath}${f.path}` : f.path));
+    await this.checkPathConflicts(fullPaths);
 
     try {
-      for (const file of filesToUpload) {
+      for (const file of files) {
         // Generate encryption key and IV
         const key = EncryptionService.generateKey();
         const iv = EncryptionService.generateIv();
@@ -324,9 +319,13 @@ export class FileService {
   /**
    * Restore soft-deleted files
    * @param filePaths - Paths of files to restore
+   * @throws FileConflictError if any file path conflicts with non-trashed file
    */
   async restoreFiles(filePaths: string[]): Promise<void> {
     const aleph = this.core.getAlephService();
+
+    // Check for path conflicts before restoring
+    await this.checkPathConflicts(filePaths);
 
     try {
       for (const path of filePaths) {
@@ -383,10 +382,22 @@ export class FileService {
   /**
    * Move/rename files
    * @param moves - Array of {oldPath, newPath} objects
+   * @throws FileConflictError if any newPath conflicts with non-trashed file
    */
   async moveFiles(moves: Array<{ oldPath: string; newPath: string }>): Promise<void> {
     const aleph = this.core.getAlephService();
     const publicKey = this.core.getPublicKey();
+
+    // Check for path conflicts on new paths
+    const existingFiles = await this.listFiles(false);
+    const existingPaths = new Set(existingFiles.map((f) => f.path));
+
+    for (const { oldPath, newPath } of moves) {
+      // Allow moving over trashed files, but not existing non-trashed (except same file)
+      if (existingPaths.has(newPath) && newPath !== oldPath) {
+        throw new FileConflictError(newPath);
+      }
+    }
 
     try {
       for (const { oldPath, newPath } of moves) {
@@ -605,6 +616,22 @@ export class FileService {
   // ============================================================================
   // Private helper methods
   // ============================================================================
+
+  /**
+   * Check for path conflicts with non-trashed files
+   * @param paths - Paths to check
+   * @throws FileConflictError on first conflict
+   */
+  private async checkPathConflicts(paths: string[]): Promise<void> {
+    const existingFiles = await this.listFiles(false); // non-trashed only
+    const existingPaths = new Set(existingFiles.map((f) => f.path));
+
+    for (const path of paths) {
+      if (existingPaths.has(path)) {
+        throw new FileConflictError(path);
+      }
+    }
+  }
 
   private async saveFileEntries(files: FileFullInfo[]): Promise<void> {
     const aleph = this.core.getAlephService();
