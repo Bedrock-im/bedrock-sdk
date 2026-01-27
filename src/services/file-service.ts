@@ -437,24 +437,24 @@ export class FileService {
   }
 
   /**
-   * Duplicate a file
-   * @param sourcePath - Source file path
-   * @param newPath - New file path
+   * Duplicate severak files
+   * @param duplicates - Pairs of source and new paths
    */
-  async duplicateFile(sourcePath: string, newPath: string): Promise<FileFullInfo> {
-    try {
-      const sourceFile = await this.getFile(sourcePath);
-      const content = await this.downloadFile(sourceFile);
+  async duplicateFiles(duplicates: Array<{ oldPath: string; newPath: string }>): Promise<FileFullInfo[]> {
+    const filesToUpload = await Promise.all(
+      duplicates.map(async ({ oldPath, newPath }) => {
+        const oldFile = await this.getFile(oldPath);
+        const content = await this.downloadFile(oldFile);
 
-      const [newFile] = await this.uploadFiles([
-        {
-          name: newPath.split('/').pop() || newPath,
-          path: newPath,
+        return {
           content,
-        },
-      ]);
-
-      return newFile;
+          path: newPath,
+          name: newPath.split('/').pop() || newPath,
+        };
+      })
+    );
+    try {
+      return await this.uploadFiles(filesToUpload);
     } catch (error) {
       throw new FileError(`Failed to duplicate file: ${(error as Error).message}`);
     }
