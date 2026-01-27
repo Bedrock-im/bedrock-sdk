@@ -1,7 +1,13 @@
-import { BedrockCore } from '../client/bedrock-core';
+import type { BedrockCore } from '../client/bedrock-core';
 import { ContactError } from '../types/errors';
 import type { FileFullInfo } from '../types/schemas';
-import { AGGREGATE_KEYS, Contact, ContactsAggregateSchema, FileEntriesAggregateSchema } from '../types/schemas';
+import {
+  AGGREGATE_KEYS,
+  Contact,
+  ContactsAggregateSchema,
+  FileEntriesAggregateSchema,
+  UserProfileSchema,
+} from '../types/schemas';
 import { FileService } from './file-service';
 
 /**
@@ -76,27 +82,43 @@ export class ContactService {
 
   /**
    * Add a new contact
-   * @param name - Contact name
-   * @param address - Contact's Ethereum address
-   * @param publicKey - Contact's public key (hex string)
+   * Fetches user profile from address to get public key
+   * @param username - Contact's username
+   * @param address - Contact's sub-account address
    */
-  async addContact(name: string, address: string, publicKey: string): Promise<Contact> {
+  async addContact(username: string, address: string): Promise<Contact> {
     const aleph = this.core.getAlephService();
 
     try {
       // Check if contact already exists
       const contacts = await this.listContacts();
-      const existingContact = contacts.find(
-        (c) => c.public_key === publicKey || c.address.toLowerCase() === address.toLowerCase()
-      );
+      const existingContact = contacts.find((c) => c.address.toLowerCase() === address.toLowerCase());
 
       if (existingContact) {
         throw new ContactError('Contact already exists');
       }
 
+      // Fetch user profile from address to get public key
+      let publicKey: string;
+      try {
+        const profile = await aleph.fetchAggregate(AGGREGATE_KEYS.USER_PROFILE, UserProfileSchema, address);
+
+        // Validate username matches profile
+        if (profile.username && profile.username !== username) {
+          throw new ContactError(`Username mismatch: provided "${username}" but profile has "${profile.username}"`);
+        }
+
+        publicKey = profile.public_key;
+      } catch (error) {
+        if (error instanceof ContactError) {
+          throw error;
+        }
+        throw new ContactError('Could not fetch contact profile. User may not have set up their profile yet.');
+      }
+
       // Create new contact
       const newContact: Contact = {
-        name,
+        name: username,
         address,
         public_key: publicKey,
       };

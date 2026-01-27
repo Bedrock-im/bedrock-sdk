@@ -13,6 +13,7 @@ export const AGGREGATE_KEYS = {
   CONTACTS: 'bedrock_contacts',
   KNOWLEDGE_BASES: 'bedrock_knowledge_bases',
   CREDITS: 'credits',
+  USER_PROFILE: 'bedrock_user_profile',
 } as const;
 
 export const POST_TYPES = {
@@ -156,6 +157,20 @@ export const ContactsAggregateSchema = z.object({
 });
 
 export type ContactsAggregate = z.infer<typeof ContactsAggregateSchema>;
+
+// ============================================================================
+// User Profile Schema
+// ============================================================================
+
+/**
+ * User profile stored at sub-account address
+ */
+export const UserProfileSchema = z.object({
+  username: z.string().optional(),
+  public_key: z.string(),
+});
+
+export type UserProfile = z.infer<typeof UserProfileSchema>;
 
 // ============================================================================
 // Knowledge Base Schemas

@@ -1,9 +1,8 @@
-import { AuthenticatedAlephHttpClient } from '@aleph-sdk/client';
 import { ETHAccount, getAccountFromProvider, importAccountFromPrivateKey } from '@aleph-sdk/ethereum';
 import { PrivateKey } from 'eciesjs';
 import web3 from 'web3';
 import { AuthenticationError } from '../types/errors';
-import { ALEPH_GENERAL_CHANNEL, BEDROCK_MESSAGE, SECURITY_AGGREGATE_KEY } from '../types/schemas';
+import { ALEPH_GENERAL_CHANNEL, BEDROCK_MESSAGE } from '../types/schemas';
 import { AlephService } from './aleph-service';
 
 /**
@@ -86,9 +85,6 @@ export class BedrockCore {
       // Create sub-account
       const subAccount = importAccountFromPrivateKey(privateKey);
 
-      // Setup security permissions
-      await BedrockCore.setupSecurityPermissions(mainAccount, subAccount, cfg);
-
       // Create AlephService
       const alephService = new AlephService(subAccount, cfg.channel, cfg.apiServer);
 
@@ -132,9 +128,6 @@ export class BedrockCore {
 
       // Create sub-account
       const subAccount = importAccountFromPrivateKey(subPrivateKey);
-
-      // Setup security permissions
-      await BedrockCore.setupSecurityPermissions(mainAccount, subAccount, cfg);
 
       // Create AlephService
       const alephService = new AlephService(subAccount, cfg.channel, cfg.apiServer);
@@ -234,70 +227,5 @@ export class BedrockCore {
    */
   getSubAccountPrivateKey(): string {
     return this.encryptionPrivateKey.toHex();
-  }
-
-  // ============================================================================
-  // Static helper methods
-  // ============================================================================
-
-  /**
-   * Setup security permissions (matches Bedrock app pattern)
-   */
-  private static async setupSecurityPermissions(
-    mainAccount: ETHAccount,
-    subAccount: ETHAccount,
-    config: Required<BedrockCoreConfig>
-  ): Promise<void> {
-    try {
-      const accountClient = new AuthenticatedAlephHttpClient(mainAccount, config.apiServer);
-
-      try {
-        // Fetch existing security aggregate
-        const securitySettings = (await accountClient.fetchAggregate(
-          mainAccount.address,
-          SECURITY_AGGREGATE_KEY
-        )) as any;
-
-        // Check if sub-account is already authorized
-        const authorizations = securitySettings?.authorizations || [];
-        const isAuthorized = authorizations.find(
-          (auth: any) =>
-            auth.address === subAccount.address && auth.types === undefined && auth.channels?.includes(config.channel)
-        );
-
-        if (!isAuthorized) {
-          // Remove old authorizations for this sub-account and add new one
-          const oldAuthorizations = authorizations.filter((a: any) => a.address !== subAccount.address);
-
-          await accountClient.createAggregate({
-            key: SECURITY_AGGREGATE_KEY,
-            content: {
-              authorizations: [
-                ...oldAuthorizations,
-                {
-                  address: subAccount.address,
-                  channels: [config.channel],
-                },
-              ],
-            },
-          });
-        }
-      } catch (_error) {
-        // Security aggregate does not exist, create a new one
-        await accountClient.createAggregate({
-          key: SECURITY_AGGREGATE_KEY,
-          content: {
-            authorizations: [
-              {
-                address: subAccount.address,
-                channels: [config.channel],
-              },
-            ],
-          },
-        });
-      }
-    } catch (error) {
-      throw new AuthenticationError(`Failed to setup security permissions: ${(error as Error).message}`);
-    }
   }
 }
