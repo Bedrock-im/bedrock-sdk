@@ -400,6 +400,9 @@ export class FileService {
     }
 
     try {
+      // Collect all updates to apply in a single aggregate update
+      const updates: Array<{ oldPostHash: string; newPostHash: string; newEncryptedPath: string }> = [];
+
       for (const { oldPath, newPath } of moves) {
         const file = await this.getFile(oldPath);
 
@@ -417,16 +420,17 @@ export class FileService {
           }
         );
 
-        // Update file entry with new encrypted path and new post_hash
         const newEncryptedPath = EncryptionService.encryptEcies(newPath, publicKey);
-        await aleph.updateAggregate(AGGREGATE_KEYS.FILE_ENTRIES, FileEntriesAggregateSchema, async (aggregate) => ({
-          files: aggregate.files.map((entry) =>
-            entry.post_hash === file.post_hash
-              ? { ...entry, path: newEncryptedPath, post_hash: updatedPost.item_hash }
-              : entry
-          ),
-        }));
+        updates.push({ oldPostHash: file.post_hash, newPostHash: updatedPost.item_hash, newEncryptedPath });
       }
+
+      // Single aggregate update for all file entries
+      await aleph.updateAggregate(AGGREGATE_KEYS.FILE_ENTRIES, FileEntriesAggregateSchema, async (aggregate) => ({
+        files: aggregate.files.map((entry) => {
+          const update = updates.find((u) => u.oldPostHash === entry.post_hash);
+          return update ? { ...entry, path: update.newEncryptedPath, post_hash: update.newPostHash } : entry;
+        }),
+      }));
     } catch (error) {
       throw new FileError(`Failed to move files: ${(error as Error).message}`);
     }
