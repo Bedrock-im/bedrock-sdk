@@ -194,6 +194,36 @@ export class BedrockClient {
     await aleph.createAggregate(AGGREGATE_KEYS.KNOWLEDGE_BASES, [] as any);
   }
 
+  /**
+   * Setup user profile at sub-account address
+   * Call this after username registration
+   * @param username - The registered username
+   */
+  async setupUserProfile(username: string): Promise<void> {
+    const aleph = this.core.getAlephService();
+    const publicKey = this.core.getPublicKey();
+
+    await aleph.createAggregate(AGGREGATE_KEYS.USER_PROFILE, {
+      username,
+      public_key: publicKey,
+    });
+  }
+
+  /**
+   * Get user profile from an address
+   * @param address - The address to fetch profile from
+   */
+  async getUserProfile(address: string): Promise<{ username?: string; public_key: string } | null> {
+    const aleph = this.core.getAlephService();
+
+    try {
+      const profile = await aleph.fetchAggregate(AGGREGATE_KEYS.USER_PROFILE, UserProfileSchema, address);
+      return profile;
+    } catch {
+      return null;
+    }
+  }
+
   // ============================================================================
   // Private methods
   // ============================================================================
@@ -207,4 +237,4 @@ export class BedrockClient {
 }
 
 // Re-export AGGREGATE_KEYS for use in reset methods
-import { AGGREGATE_KEYS } from './types/schemas';
+import { AGGREGATE_KEYS, UserProfileSchema } from './types/schemas';

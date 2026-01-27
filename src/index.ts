@@ -50,6 +50,10 @@ export {
   ContactsAggregate,
   ContactsAggregateSchema,
 
+  // User profile types
+  UserProfile,
+  UserProfileSchema,
+
   // Knowledge base types
   KnowledgeBase,
   KnowledgeBaseSchema,

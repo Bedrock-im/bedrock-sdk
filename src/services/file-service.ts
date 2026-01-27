@@ -546,6 +546,176 @@ export class FileService {
   }
 
   /**
+   * Revoke access with key rotation - re-encrypts file with new key/iv
+   * Removed contacts will no longer be able to decrypt even if they cached the old key
+   * @param filePath - File path
+   * @param contactsToRemove - Public keys of contacts to remove
+   * @param remainingContacts - Public keys of contacts to keep
+   */
+  async revokeAccessWithRotation(
+    filePath: string,
+    _contactsToRemove: string[],
+    remainingContacts: string[]
+  ): Promise<FileFullInfo> {
+    const aleph = this.core.getAlephService();
+    const privateKey = this.core.getSubAccountPrivateKey();
+
+    try {
+      const file = await this.getFile(filePath);
+
+      // 1. Download and decrypt file content
+      const decryptedContent = await this.downloadFile(file);
+
+      // 2. Generate new key/iv
+      const newKey = EncryptionService.generateKey();
+      const newIv = EncryptionService.generateIv();
+
+      // 3. Re-encrypt file content with new key/iv
+      const encryptedContent = await EncryptionService.encryptFile(decryptedContent, newKey, newIv);
+
+      // 4. Upload new STORE
+      const storeResult = await aleph.uploadFile(encryptedContent);
+      const newStoreHash = storeResult.item_hash;
+      const oldStoreHash = file.store_hash;
+
+      // 5. Build new shared_keys for remaining contacts
+      const newSharedKeys: Record<string, { key: string; iv: string }> = {};
+      for (const contactPubKey of remainingContacts) {
+        newSharedKeys[contactPubKey] = {
+          key: EncryptionService.encryptEcies(newKey.toString('hex'), contactPubKey),
+          iv: EncryptionService.encryptEcies(newIv.toString('hex'), contactPubKey),
+        };
+      }
+
+      // 6. Update POST with new encrypted metadata
+      const updatedPost = await aleph.updatePost(
+        POST_TYPES.FILE,
+        file.post_hash,
+        [aleph.getAddress()],
+        FileMetaEncryptedSchema,
+        async () => {
+          // Build new metadata with new key/iv
+          const newMeta: FileMeta = {
+            name: file.name,
+            path: file.path,
+            key: newKey.toString('hex'),
+            iv: newIv.toString('hex'),
+            store_hash: newStoreHash,
+            size: file.size,
+            created_at: file.created_at,
+            deleted_at: file.deleted_at,
+            shared_keys: newSharedKeys,
+          };
+          return await this.encryptFileMeta(newMeta);
+        }
+      );
+
+      // 7. Delete old STORE only (POST is updated, not forgotten)
+      await aleph.deleteFiles([oldStoreHash]);
+
+      // 8. Update file entries aggregate
+      await aleph.updateAggregate(AGGREGATE_KEYS.FILE_ENTRIES, FileEntriesAggregateSchema, async (aggregate) => ({
+        files: aggregate.files.map((entry) =>
+          file.path === EncryptionService.decryptEcies(entry.path, privateKey)
+            ? {
+                ...entry,
+                post_hash: updatedPost.item_hash,
+                shared_with: remainingContacts,
+              }
+            : entry
+        ),
+      }));
+
+      // 9. Return updated file info (constructed locally, not fetched)
+      return {
+        ...file,
+        key: newKey.toString('hex'),
+        iv: newIv.toString('hex'),
+        store_hash: newStoreHash,
+        post_hash: updatedPost.item_hash,
+        shared_with: remainingContacts,
+        shared_keys: newSharedKeys,
+      };
+    } catch (error) {
+      throw new FileError(`Failed to revoke access with rotation: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Update file sharing - handles adding and removing contacts
+   * If contacts are removed, triggers key rotation for security
+   * @param filePath - File path
+   * @param newContactPubKeys - New list of contact public keys that should have access
+   */
+  async updateFileSharing(filePath: string, newContactPubKeys: string[]): Promise<FileFullInfo> {
+    const aleph = this.core.getAlephService();
+
+    try {
+      const file = await this.getFile(filePath);
+      const currentSharedWith = file.shared_with || [];
+
+      const toAdd = newContactPubKeys.filter((pk) => !currentSharedWith.includes(pk));
+      const toRemove = currentSharedWith.filter((pk) => !newContactPubKeys.includes(pk));
+
+      if (toRemove.length > 0) {
+        // Contacts removed - need key rotation (re-encrypts file with new key)
+        // Returns the updated file directly (no Aleph fetch needed)
+        return await this.revokeAccessWithRotation(filePath, toRemove, newContactPubKeys);
+      } else if (toAdd.length > 0) {
+        // Only adding contacts - add all keys in a single update
+        const newSharedKeys: Record<string, { key: string; iv: string }> = {};
+        for (const contactPubKey of toAdd) {
+          newSharedKeys[contactPubKey] = {
+            key: EncryptionService.encryptEcies(file.key, contactPubKey),
+            iv: EncryptionService.encryptEcies(file.iv, contactPubKey),
+          };
+        }
+
+        // Single POST update with all new keys
+        const updatedPost = await aleph.updatePost(
+          POST_TYPES.FILE,
+          file.post_hash,
+          [aleph.getAddress()],
+          FileMetaEncryptedSchema,
+          async (encryptedMeta) => {
+            const decryptedMeta = await this.decryptFileMeta(encryptedMeta);
+            // Merge new shared keys with existing
+            decryptedMeta.shared_keys = { ...decryptedMeta.shared_keys, ...newSharedKeys };
+            return await this.encryptFileMeta(decryptedMeta);
+          }
+        );
+
+        // Single aggregate update with all new contacts
+        const updatedSharedWith = [...new Set([...currentSharedWith, ...toAdd])];
+        await aleph.updateAggregate(AGGREGATE_KEYS.FILE_ENTRIES, FileEntriesAggregateSchema, async (aggregate) => ({
+          files: aggregate.files.map((entry) =>
+            entry.post_hash === file.post_hash
+              ? {
+                  ...entry,
+                  post_hash: updatedPost.item_hash,
+                  shared_with: updatedSharedWith,
+                }
+              : entry
+          ),
+        }));
+
+        // Return updated file info (constructed locally, not fetched from Aleph)
+        return {
+          ...file,
+          post_hash: updatedPost.item_hash,
+          shared_with: updatedSharedWith,
+          shared_keys: { ...file.shared_keys, ...newSharedKeys },
+        };
+      }
+
+      // No changes needed
+      return file;
+    } catch (error) {
+      throw new FileError(`Failed to update file sharing: ${(error as Error).message}`);
+    }
+  }
+
+  /**
    * Share a file publicly (unencrypted, anyone can access)
    * @param fileInfo - File to share publicly
    * @param username - Username for attribution
