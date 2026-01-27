@@ -185,10 +185,14 @@ await client.files.moveFiles([
 ]);
 ```
 
-#### Duplicate File
+#### Duplicate Files
 
 ```typescript
-await client.files.duplicateFile('original.txt', 'copy.txt');
+await client.files.duplicateFiles([{ oldPath: 'original.txt', newPath: 'copy.txt' }]);
+await client.files.duplicateFiles([
+    { oldPath: 'original.txt', newPath: 'copy.txt' }
+    { oldPath: 'dir/file1.pdf', newPath: 'dir2/file2.pdf' }
+]);
 ```
 
 #### Soft Delete (Trash)
