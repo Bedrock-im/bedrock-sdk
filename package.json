@@ -53,13 +53,13 @@
     "@types/node": "^20.11.5",
     "@typescript-eslint/eslint-plugin": "^6.19.1",
     "@typescript-eslint/parser": "^6.19.1",
-    "@vitest/ui": "^1.2.1",
+    "@vitest/ui": "^4.0.18",
     "eslint": "^8.56.0",
     "patch-package": "^8.0.1",
     "prettier": "^3.7.4",
     "tsup": "^8.0.1",
     "typescript": "^5.3.3",
-    "vitest": "^1.2.1"
+    "vitest": "^4.0.18"
   },
   "peerDependencies": {
     "ethers": "^5.8.0"
