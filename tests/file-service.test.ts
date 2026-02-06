@@ -1,14 +1,13 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PrivateKey } from 'eciesjs';
-import { FileService } from '../src/services/file-service';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { EncryptionService } from '../src/crypto/encryption';
-import { FileConflictError, FileNotFoundError, FileError } from '../src/types/errors';
+import { FileService } from '../src/services/file-service';
+import { FileConflictError, FileNotFoundError } from '../src/types/errors';
 import { AGGREGATE_KEYS, POST_TYPES } from '../src/types/schemas';
 import {
   createMockCore,
   TEST_PUBLIC_KEY,
-  TEST_ECIES_PRIVATE_KEY,
-  type MockCore,
+  type MockCore
 } from './helpers/mock-core';
 
 describe('FileService', () => {
@@ -186,7 +185,7 @@ describe('FileService', () => {
   describe('listFiles', () => {
     it('filters non-deleted by default', async () => {
       // Upload two files, soft-delete one
-      const uploaded = await service.uploadFiles([
+      await service.uploadFiles([
         { name: 'a.txt', path: '/a.txt', content: Buffer.from('a') },
         { name: 'b.txt', path: '/b.txt', content: Buffer.from('b') },
       ]);
