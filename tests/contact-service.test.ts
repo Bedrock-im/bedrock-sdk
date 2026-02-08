@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+
 import { ContactService } from '../src/services/contact-service';
 import { FileService } from '../src/services/file-service';
 import { ContactError } from '../src/types/errors';
@@ -22,10 +22,10 @@ describe('ContactService', () => {
   beforeEach(() => {
     mockCore = createMockCore();
     mockFileService = {
-      fetchFileEntries: vi.fn().mockResolvedValue([]),
-      fetchFilesMetaFromEntries: vi.fn().mockResolvedValue([]),
-      shareFile: vi.fn().mockResolvedValue(undefined),
-      unshareFile: vi.fn().mockResolvedValue(undefined),
+      fetchFileEntries: jest.fn().mockResolvedValue([]),
+      fetchFilesMetaFromEntries: jest.fn().mockResolvedValue([]),
+      shareFile: jest.fn().mockResolvedValue(undefined),
+      unshareFile: jest.fn().mockResolvedValue(undefined),
     };
     service = new ContactService(mockCore as any, mockFileService as unknown as FileService);
 

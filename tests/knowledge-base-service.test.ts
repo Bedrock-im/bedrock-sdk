@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+
 import { KnowledgeBaseService } from '../src/services/knowledge-base-service';
 import { KnowledgeBaseError } from '../src/types/errors';
 import { AGGREGATE_KEYS } from '../src/types/schemas';
