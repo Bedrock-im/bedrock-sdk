@@ -1,30 +1,25 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AGGREGATE_KEYS } from '../src/types/schemas';
 
-const { mockAleph, mockCoreInstance } = vi.hoisted(() => {
-  const mockAleph = {
-    fetchAggregate: vi.fn(),
-    createAggregate: vi.fn(),
-    updateAggregate: vi.fn(),
-  };
+const mockAleph = {
+  fetchAggregate: jest.fn(),
+  createAggregate: jest.fn(),
+  updateAggregate: jest.fn(),
+};
 
-  const mockCoreInstance = {
-    getAlephService: vi.fn().mockReturnValue(mockAleph),
-    getMainAddress: vi.fn().mockReturnValue('0x' + 'aa'.repeat(20)),
-    getSubAddress: vi.fn().mockReturnValue('0x' + 'bb'.repeat(20)),
-    getPublicKey: vi.fn().mockReturnValue('mock_public_key'),
-    getEncryptionKey: vi.fn().mockReturnValue(Buffer.alloc(32)),
-    getSubAccountPrivateKey: vi.fn().mockReturnValue('mock_private_key'),
-  };
+const mockCoreInstance = {
+  getAlephService: jest.fn().mockReturnValue(mockAleph),
+  getMainAddress: jest.fn().mockReturnValue('0x' + 'aa'.repeat(20)),
+  getSubAddress: jest.fn().mockReturnValue('0x' + 'bb'.repeat(20)),
+  getPublicKey: jest.fn().mockReturnValue('mock_public_key'),
+  getEncryptionKey: jest.fn().mockReturnValue(Buffer.alloc(32)),
+  getSubAccountPrivateKey: jest.fn().mockReturnValue('mock_private_key'),
+};
 
-  return { mockAleph, mockCoreInstance };
-});
-
-vi.mock('../src/client/bedrock-core', () => ({
+jest.mock('../src/client/bedrock-core', () => ({
   BedrockCore: {
-    fromPrivateKey: vi.fn().mockResolvedValue(mockCoreInstance),
-    fromProvider: vi.fn().mockResolvedValue(mockCoreInstance),
-    fromSignature: vi.fn().mockResolvedValue(mockCoreInstance),
+    fromPrivateKey: jest.fn().mockResolvedValue(mockCoreInstance),
+    fromProvider: jest.fn().mockResolvedValue(mockCoreInstance),
+    fromSignature: jest.fn().mockResolvedValue(mockCoreInstance),
   },
 }));
 

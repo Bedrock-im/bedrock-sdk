@@ -1,5 +1,4 @@
 import { PrivateKey } from 'eciesjs';
-import { beforeEach, describe, expect, it } from 'vitest';
 import { EncryptionService } from '../src/crypto/encryption';
 import { FileService } from '../src/services/file-service';
 import { FileConflictError, FileNotFoundError } from '../src/types/errors';

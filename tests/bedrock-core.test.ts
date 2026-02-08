@@ -1,29 +1,29 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AuthenticationError } from '../src/types/errors';
 
 // Mock external deps
-vi.mock('@aleph-sdk/ethereum', () => ({
-  importAccountFromPrivateKey: vi.fn((key: string) => ({
+jest.mock('@aleph-sdk/ethereum', () => ({
+  importAccountFromPrivateKey: jest.fn((key: string) => ({
     address: '0x' + key.replace('0x', '').slice(0, 40).padEnd(40, '0'),
     publicKey: 'mock_eth_pub_key',
   })),
-  getAccountFromProvider: vi.fn(),
+  getAccountFromProvider: jest.fn(),
 }));
 
-vi.mock('@aleph-sdk/client', () => ({
-  AuthenticatedAlephHttpClient: vi.fn().mockImplementation(() => ({
-    createStore: vi.fn(),
-    createAggregate: vi.fn(),
-    fetchAggregate: vi.fn(),
+jest.mock('@aleph-sdk/client', () => ({
+  AuthenticatedAlephHttpClient: jest.fn().mockImplementation(() => ({
+    createStore: jest.fn(),
+    createAggregate: jest.fn(),
+    fetchAggregate: jest.fn(),
   })),
 }));
 
-vi.mock('web3', () => {
+jest.mock('web3', () => {
   let callCount = 0;
-  return {
+  const mock = {
+    __esModule: true,
     default: {
       utils: {
-        sha3: vi.fn((input: string) => {
+        sha3: jest.fn((_input: string) => {
           // Return deterministic hex hashes
           callCount++;
           // Produce different valid 66-char hex strings each time
@@ -32,6 +32,7 @@ vi.mock('web3', () => {
       },
     },
   };
+  return mock;
 });
 
 // Import after mocking
@@ -39,7 +40,7 @@ import { BedrockCore } from '../src/client/bedrock-core';
 
 describe('BedrockCore', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
   });
 
   describe('fromPrivateKey', () => {
